@@ -41,20 +41,26 @@ def blob_configured() -> bool:
     return bool(os.environ.get(BLOB_TOKEN_ENV, "").strip())
 
 
-def _require_blob():
+# Must match the Blob store's type. A PRIVATE store (recommended) never exposes files by URL.
+BLOB_ACCESS = (os.environ.get("INSTAGRAM_MCP_BLOB_ACCESS", "private").strip().lower() or "private")
+
+
+def _sdk():
+    """Return the official `vercel.blob` module (package `vercel`)."""
     if not blob_configured():
         raise RuntimeError(
             "Vercel Blob is not configured: set BLOB_READ_WRITE_TOKEN in the "
             "project's environment variables (Vercel: Storage → Blob → Connect)."
         )
     try:
-        from blob import put, fetch as blob_fetch, del_ as blob_del, head  # type: ignore
+        from vercel import blob as vercel_blob
     except ImportError as e:  # pragma: no cover - dependency missing
-        raise RuntimeError(
-            "The '@vercel/python-blob-sdk' package is required for Blob support: "
-            "pip install @vercel/python-blob-sdk"
-        ) from e
-    return put, blob_fetch, blob_del, head
+        raise RuntimeError("The 'vercel' package is required for Blob support: pip install vercel") from e
+    return vercel_blob
+
+
+def _token() -> str:
+    return os.environ[BLOB_TOKEN_ENV].strip()
 
 
 # ---------------------------------------------------------------------------
@@ -98,30 +104,28 @@ def new_upload_id() -> str:
 # ---------------------------------------------------------------------------
 
 def put_bytes(key: str, data: bytes, content_type: str = "application/octet-stream",
-              access: str = "private") -> Dict[str, Any]:
-    """Store bytes under `key`. Returns the Blob metadata dict ({url, pathname...})."""
-    put, _, _, _ = _require_blob()
-    res = put(key, data, access=access, content_type=content_type, add_random_suffix=False)
-    return {
-        "url": getattr(res, "url", None),
-        "pathname": getattr(res, "pathname", key),
-        "size": getattr(res, "size", len(data)),
-    }
+              access: Optional[str] = None) -> Dict[str, Any]:
+    """Store bytes under `key`, replacing any existing object. Returns {url, pathname, size}."""
+    res = _sdk().put(key, data, access=access or BLOB_ACCESS, content_type=content_type,
+                     add_random_suffix=False, overwrite=True, token=_token())
+    return {"url": res.url, "pathname": res.pathname, "size": len(data)}
 
 
 def get_bytes(pathname_or_url: str) -> bytes:
-    """Download a Blob's contents. Accepts a pathname (key) or a full URL."""
-    _, blob_fetch, _, _ = _require_blob()
-    res = blob_fetch(pathname_or_url)
-    if res is None:
+    """Download a Blob's contents (never from cache). Accepts a pathname or a full URL."""
+    sdk = _sdk()
+    try:
+        res = sdk.get(pathname_or_url, access=BLOB_ACCESS, token=_token(), use_cache=False)
+    except sdk.BlobNotFoundError as e:
+        raise FileNotFoundError(f"Blob object not found: {pathname_or_url}") from e
+    if res is None or getattr(res, "status_code", 200) == 404 or res.content is None:
         raise FileNotFoundError(f"Blob object not found: {pathname_or_url}")
-    return res.bytes() if callable(getattr(res, "bytes", None)) else bytes(res)
+    return bytes(res.content)
 
 
 def delete(pathname_or_url: str) -> None:
-    """Delete one or many Blob objects by pathname or URL."""
-    _, _, blob_del, _ = _require_blob()
-    blob_del(pathname_or_url)
+    """Delete one Blob object (or several, if given a list) by pathname or URL."""
+    _sdk().delete(pathname_or_url, token=_token())
 
 
 def exists(pathname: str) -> bool:
@@ -138,29 +142,17 @@ def listing_blobs(result) -> List[Any]:
 
 def list_prefix(prefix: str) -> List[Dict[str, Any]]:
     """List objects under a key prefix (paginated, capped at 1000)."""
-    _, _, _, head = _require_blob()
-    token = os.environ[BLOB_TOKEN_ENV]
-    out: List[Dict[str, Any]] = []
+    sdk = _sdk()
+    out: List[Any] = []
     cursor: Optional[str] = None
     for _ in range(10):  # hard page cap
-        kwargs: Dict[str, Any] = {"prefix": prefix, "count": 100}
-        if cursor:
-            kwargs["cursor"] = cursor
-        res = head(params={"token": token}, **kwargs)
-        page = listing_blobs(res)
-        out.extend(page)
-        cursor = getattr(res, "has_more", False) and getattr(res, "cursor", None)
+        res = sdk.list_objects(prefix=prefix, limit=100, cursor=cursor, token=_token())
+        out.extend(listing_blobs(res))
+        cursor = res.cursor if getattr(res, "has_more", False) else None
         if not cursor or len(out) >= 1000:
             break
-    return [
-        {
-            "pathname": getattr(b, "pathname", ""),
-            "url": getattr(b, "url", ""),
-            "size": getattr(b, "size", None),
-            "uploaded_at": getattr(b, "uploadedAt", None) or getattr(b, "uploaded_at", None),
-        }
-        for b in out
-    ]
+    return [{"pathname": b.pathname, "url": b.url, "size": b.size, "uploaded_at": b.uploaded_at}
+            for b in out]
 
 
 # ---------------------------------------------------------------------------

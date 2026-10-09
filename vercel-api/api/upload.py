@@ -5,8 +5,8 @@ The page itself (public/upload.html) is served by the MCP ASGI app (api/mcp_serv
 MCP_AUTH_KEY gate; this function handles the two JSON calls it makes:
 
   POST /api/upload {"action":"begin", filename, size, content_type, kind}
-      -> returns instructions for uploading the bytes DIRECTLY to Vercel Blob
-         (client-side form upload — bypasses the ~4.5 MB serverless body limit)
+      -> returns a safe Blob pathname; the page then uploads DIRECTLY to Vercel Blob with a
+         short-lived token from /api/blob-token (bypasses the ~4.5 MB serverless body limit)
 
   POST /api/upload {"action":"commit", filename, pathname, url, size,
                     content_type, kind, aspect, caption}
@@ -114,36 +114,15 @@ async def app(scope, receive, send):
             })
             return
         key = blob_store.upload_key(blob_store.new_upload_id(), filename)
-        token = os.environ.get(blob_store.BLOB_TOKEN_ENV, "")
-        try:
-            from blob import create_client_upload_url  # type: ignore
-            res = create_client_upload_url(key, token=token,
-                                           max_size=max(size, 1) + 1024 * 1024,
-                                           access="private",
-                                           add_random_suffix=False)
-            await _send_json(send, 200, {
-                "mode": "signed_put",
-                "upload_url": getattr(res, "upload_url", None) or getattr(res, "uploadUrl", None),
-                "pathname": getattr(res, "pathname", key),
-            })
-        except ImportError:
-            # No Python client-upload helper in this SDK version: fall back to
-            # the browser form-upload contract (token goes to Blob only, never
-            # to our function — the bytes skip the 4.5 MB serverless limit).
-            await _send_json(send, 200, {
-                "mode": "form",
-                "target": "https://blob.vercel-storage.com/",
-                "pathname": key,
-                "form_data": {
-                    "token": token,
-                    "pathname": key,
-                    "access": "private",
-                    "addRandomSuffix": "false",
-                    "contentType": str(body.get("content_type") or "application/octet-stream"),
-                },
-            })
-        except Exception as e:
-            await _send_json(send, 500, {"error": f"could not mint Blob upload URL: {e}"})
+        # The browser uploads with a short-lived, single-file token minted by /api/blob-token
+        # (a Node function using @vercel/blob). The long-lived BLOB_READ_WRITE_TOKEN never
+        # leaves the server.
+        await _send_json(send, 200, {
+            "mode": "client_token",
+            "pathname": key,
+            "handle_upload_url": "/api/blob-token",
+            "access": blob_store.BLOB_ACCESS,
+        })
         return
 
     if action == "commit":

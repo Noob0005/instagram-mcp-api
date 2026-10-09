@@ -1,0 +1,12 @@
+{
+  "name": "instagram-mcp-vercel",
+  "private": true,
+  "type": "module",
+  "description": "Node helper function that mints short-lived Vercel Blob client-upload tokens",
+  "dependencies": {
+    "@vercel/blob": "2.8.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

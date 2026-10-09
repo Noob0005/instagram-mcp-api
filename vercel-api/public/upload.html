@@ -81,28 +81,22 @@ document.getElementById('go').addEventListener('click', async () => {
   const caption = document.getElementById('caption').value;
   const btn = document.getElementById('go'); btn.disabled = true;
   try {
-    // 1. Ask the server where/how to upload this file into Blob.
-    say('Requesting upload slot…');
+    // 1. Ask the server for a safe Blob pathname (no token is ever sent to the browser here).
+    say('Preparing upload…');
     const slot = await jpost('/api/upload', { action: 'begin', filename: f.name,
                                               size: f.size, content_type: f.type, kind });
-    let pathname = slot.pathname, url = slot.url;
-    if (slot.form_data) {
-      // 2a. Browser → Blob directly (multipart form POST; skips the 4.5 MB limit).
-      say('Uploading straight to Blob…');
-      const fd = new FormData();
-      for (const [k, v] of Object.entries(slot.form_data)) fd.append(k, v);
-      fd.append('file', f, f.name);
-      const up = await fetch(slot.target, { method: 'POST', body: fd });
-      if (!up.ok) throw new Error('Blob upload failed: ' + up.status);
-      const res = await up.json().catch(() => ({}));
-      pathname = res.pathname || pathname; url = res.url || url;
-    } else if (slot.upload_url) {
-      // 2b. Signed PUT URL fallback.
-      say('Uploading straight to Blob…');
-      const up = await fetch(slot.upload_url, { method: 'PUT', body: f,
-                          headers: { 'Content-Type': f.type || 'application/octet-stream' } });
-      if (!up.ok) throw new Error('Blob upload failed: ' + up.status);
-    }
+    // 2. Upload straight to Blob with a short-lived, single-file token from /api/blob-token.
+    say('Uploading straight to Blob…');
+    const { upload } = await import('https://esm.sh/@vercel/blob@2.8.1/client');
+    const blob = await upload(slot.pathname, f, {
+      access: slot.access || 'private',
+      handleUploadUrl: slot.handle_upload_url || '/api/blob-token',
+      clientPayload: JSON.stringify({ key: AUTH, kind }),
+      contentType: f.type || undefined,
+      multipart: f.size > 20 * 1024 * 1024,
+      onUploadProgress: (e) => say('Uploading… ' + Math.round(e.percentage) + '%'),
+    });
+    const pathname = blob.pathname, url = blob.url;
     // 3. Register metadata only — the bytes never touch the serverless function.
     say('Registering…');
     await jpost('/api/upload', { action: 'commit', filename: f.name, pathname, url,

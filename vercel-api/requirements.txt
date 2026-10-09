@@ -3,6 +3,4 @@ instagrapi>=3.0.0,<4
 pillow>=10.0.0
 requests>=2.31.0
 cryptography>=42.0.0
-# Vercel Blob: connect the store in the Vercel Storage UI — BLOB_READ_WRITE_TOKEN
-# is injected automatically, no pip package required (blob_store.py talks to the
-# Blob REST API directly; it will use the `blob` Python SDK if one is installed).
+vercel>=0.11.6,<0.12  # official Vercel SDK: vercel.blob (sessions + uploads)

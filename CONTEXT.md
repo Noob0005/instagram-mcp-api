@@ -106,5 +106,5 @@ EXCLUDE from bundle: `.venv/`, `__pycache__/`, `dist/`, `build/`, `*.egg-info/`,
   rebuilt github bundle with latest code + refreshed CONTEXT. Awaiting user Termux retest.
 - 2026-10-09: Pushed project to red7773md/instagram-mcp-api (commit 3f07896). Added
   `!vercel-api/vercel.json` to .gitignore so the `*.json` rule no longer skips it. Not yet committed.
-
-
+- 2026-10-10: Added admin dashboard (vercel-api/admin_ui, served at /): login, env checklist, MCP URL, endpoint tester, session form. 23 tests.
+- 2026-10-10: Fixed Blob layer: blob_store.py now uses the real `vercel` SDK (old code imported a non-existent `blob` module and never passed overwrite=True, so sessions/uploads never saved). Private store is the default (INSTAGRAM_MCP_BLOB_ACCESS). Closed token leak: browser now gets single-file tokens from api/blob-token.js (@vercel/blob 2.8.1) instead of BLOB_READ_WRITE_TOKEN. Added tests/test_blob_store.py.
