@@ -1,0 +1,5 @@
+fastmcp>=3.0.0,<5
+# Termux/Android: curl_cffi has no Android wheels -> install with: pip install "instagrapi>=2.18,<3"
+instagrapi>=2.18,<4
+pillow>=10.0.0
+requests>=2.31.0
