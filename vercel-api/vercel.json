@@ -3,25 +3,19 @@
   "rewrites": [
     {
       "source": "/mcp",
-      "destination": "/api/mcp"
+      "destination": "/api/main"
     },
     {
       "source": "/mcp/",
-      "destination": "/api/mcp"
+      "destination": "/api/main"
     },
     {
       "source": "/healthz",
-      "destination": "/api/mcp"
+      "destination": "/api/main"
     }
   ],
   "functions": {
-    "api/mcp.py": {
-      "maxDuration": 60
-    },
-    "api/upload.py": {
-      "maxDuration": 60
-    },
-    "api/cleanup.py": {
+    "api/main.py": {
       "maxDuration": 60
     }
   },

@@ -28,7 +28,7 @@ from instagram_mcp_server.mcp_server import mcp  # noqa: E402
 
 UPLOAD_PAGE_PATH = str(Path(__file__).resolve().parent.parent / "public" / "upload.html")
 
-MCP_PATH = "/api/mcp"  # path of this function on Vercel (vercel.json maps /mcp here)
+MCP_PATH = "/api/main"  # path of this function on Vercel (vercel.json maps /mcp here)
 AUTH_KEY = os.environ.get("MCP_AUTH_KEY", "")
 ALLOW_UNAUTHENTICATED = os.environ.get("MCP_ALLOW_UNAUTHENTICATED", "") == "1"
 
@@ -110,7 +110,7 @@ async def app(scope, receive, send):
             })
             await send({"type": "http.response.body", "body": page})
             return
-        if path in ("/mcp", "/mcp/"):
+        if path in ("/mcp", "/mcp/", "/api/main", "/api/main/"):
             # vercel.json rewrites /mcp here; normalise for direct calls too.
             scope = dict(scope)
             scope["path"] = MCP_PATH
