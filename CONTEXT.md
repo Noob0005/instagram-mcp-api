@@ -104,5 +104,7 @@ EXCLUDE from bundle: `.venv/`, `__pycache__/`, `dist/`, `build/`, `*.egg-info/`,
 - 2026-10-09: Termux pydantic-core fix verified present in scripts/setup.py
   (prebuilt Android wheels via eutalix index + Rust fallback, --termux-mode flag);
   rebuilt github bundle with latest code + refreshed CONTEXT. Awaiting user Termux retest.
+- 2026-10-09: Pushed project to red7773md/instagram-mcp-api (commit 3f07896). Added
+  `!vercel-api/vercel.json` to .gitignore so the `*.json` rule no longer skips it. Not yet committed.
 
 
