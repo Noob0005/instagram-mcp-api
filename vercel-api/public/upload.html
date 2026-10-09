@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Upload to Instagram MCP</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; }
+  h1 { font-size: 1.3rem; }
+  .card { border: 1px solid #8884; border-radius: 12px; padding: 1rem; display: grid; gap: .75rem; }
+  label { font-weight: 600; font-size: .9rem; }
+  input, select, textarea { width: 100%; box-sizing: border-box; padding: .5rem; border-radius: 8px; border: 1px solid #8886; font: inherit; }
+  textarea { min-height: 90px; }
+  button { padding: .6rem 1rem; border: 0; border-radius: 8px; background: #e1306c; color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+  #status { white-space: pre-wrap; font-size: .9rem; }
+  .row { display: flex; gap: .75rem; }
+  .row > div { flex: 1; }
+  .hint { font-size: .8rem; opacity: .7; }
+</style>
+</head>
+<body>
+<h1>📤 New upload</h1>
+<div class="card">
+  <div>
+    <label for="file">Photo or video</label>
+    <input type="file" id="file" accept="image/*,video/mp4,video/quicktime,video/*">
+    <div class="hint">Files go straight from your browser to Vercel Blob — no size limit.</div>
+  </div>
+  <div class="row">
+    <div>
+      <label for="kind">Type</label>
+      <select id="kind">
+        <option value="photo">Photo (feed post)</option>
+        <option value="reel">Reel (video)</option>
+      </select>
+    </div>
+    <div>
+      <label for="aspect">Aspect ratio</label>
+      <select id="aspect">
+        <option value="auto">Auto (keep, crop if out of range)</option>
+        <option value="square">Square 1:1</option>
+        <option value="portrait">Portrait 4:5</option>
+        <option value="landscape">Landscape 1.91:1</option>
+        <option value="keep">Keep original (no crop)</option>
+      </select>
+    </div>
+  </div>
+  <div>
+    <label for="caption">Caption</label>
+    <textarea id="caption" placeholder="Stored with the file — the assistant posts it verbatim"></textarea>
+  </div>
+  <button id="go">Upload</button>
+  <div id="status"></div>
+</div>
+
+<script>
+// The page is served by the same function that serves /mcp and is protected by
+// the MCP_AUTH_KEY gate (?auth=..., Bearer header, or X-Auth-Key). We reuse the
+// auth that loaded the page for the JSON registration call.
+const params = new URLSearchParams(location.search);
+const AUTH = params.get('auth') || sessionStorage.getItem('mcp_auth') || '';
+if (AUTH) sessionStorage.setItem('mcp_auth', AUTH);
+const H = { 'X-Auth-Key': AUTH };
+const statusEl = document.getElementById('status');
+const say = (m) => { statusEl.textContent = m; };
+
+async function jpost(url, body) {
+  const r = await fetch(url, { method: 'POST', headers: { ...H, 'Content-Type': 'application/json' },
+                               body: JSON.stringify(body) });
+  if (!r.ok) throw new Error((await r.text().catch(() => '')) || r.status + ' ' + r.statusText);
+  return r.json();
+}
+
+document.getElementById('go').addEventListener('click', async () => {
+  const f = document.getElementById('file').files[0];
+  if (!f) return say('Pick a file first.');
+  const kind = document.getElementById('kind').value;
+  const aspect = document.getElementById('aspect').value;
+  const caption = document.getElementById('caption').value;
+  const btn = document.getElementById('go'); btn.disabled = true;
+  try {
+    // 1. Ask the server where/how to upload this file into Blob.
+    say('Requesting upload slot…');
+    const slot = await jpost('/api/upload', { action: 'begin', filename: f.name,
+                                              size: f.size, content_type: f.type, kind });
+    let pathname = slot.pathname, url = slot.url;
+    if (slot.form_data) {
+      // 2a. Browser → Blob directly (multipart form POST; skips the 4.5 MB limit).
+      say('Uploading straight to Blob…');
+      const fd = new FormData();
+      for (const [k, v] of Object.entries(slot.form_data)) fd.append(k, v);
+      fd.append('file', f, f.name);
+      const up = await fetch(slot.target, { method: 'POST', body: fd });
+      if (!up.ok) throw new Error('Blob upload failed: ' + up.status);
+      const res = await up.json().catch(() => ({}));
+      pathname = res.pathname || pathname; url = res.url || url;
+    } else if (slot.upload_url) {
+      // 2b. Signed PUT URL fallback.
+      say('Uploading straight to Blob…');
+      const up = await fetch(slot.upload_url, { method: 'PUT', body: f,
+                          headers: { 'Content-Type': f.type || 'application/octet-stream' } });
+      if (!up.ok) throw new Error('Blob upload failed: ' + up.status);
+    }
+    // 3. Register metadata only — the bytes never touch the serverless function.
+    say('Registering…');
+    await jpost('/api/upload', { action: 'commit', filename: f.name, pathname, url,
+                                 size: f.size, content_type: f.type, kind, aspect, caption });
+    say('✅ Uploaded! Tell the assistant to run list_uploads — it will see this file with its caption.');
+    document.getElementById('caption').value = '';
+  } catch (e) {
+    say('❌ ' + e.message);
+  } finally { btn.disabled = false; }
+});
+</script>
+</body>
+</html>
