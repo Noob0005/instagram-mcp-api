@@ -1,7 +1,7 @@
 """
 Vercel Python function: browser upload endpoint for the /upload page.
 
-The page itself (public/upload.html) is served by api/mcp.py behind the
+The page itself (public/upload.html) is served by the MCP ASGI app (api/mcp_server_asgi.py) behind the
 MCP_AUTH_KEY gate; this function handles the two JSON calls it makes:
 
   POST /api/upload {"action":"begin", filename, size, content_type, kind}
