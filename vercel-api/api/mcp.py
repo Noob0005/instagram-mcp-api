@@ -26,6 +26,8 @@ if _VENDOR.is_dir() and str(_VENDOR) not in sys.path:
 
 from instagram_mcp_server.mcp_server import mcp  # noqa: E402
 
+UPLOAD_PAGE_PATH = str(Path(__file__).resolve().parent.parent / "public" / "upload.html")
+
 MCP_PATH = "/api/mcp"  # path of this function on Vercel (vercel.json maps /mcp here)
 AUTH_KEY = os.environ.get("MCP_AUTH_KEY", "")
 ALLOW_UNAUTHENTICATED = os.environ.get("MCP_ALLOW_UNAUTHENTICATED", "") == "1"
@@ -92,6 +94,21 @@ async def app(scope, receive, send):
         path = scope.get("path", "")
         if path in ("/healthz", "/api/healthz"):
             await _send_json(send, 200, '{"status":"ok","server":"instagram-mcp","stateless":true}')
+            return
+        if path in ("/upload", "/upload/"):
+            # Browser upload page — protected by the SAME MCP_AUTH_KEY gate below.
+            try:
+                with open(UPLOAD_PAGE_PATH, "rb") as fh:
+                    page = fh.read()
+            except OSError:
+                await _send_json(send, 500, '{"error":"upload_page_missing"}')
+                return
+            await send({
+                "type": "http.response.start",
+                "status": 200,
+                "headers": [(b"content-type", b"text/html; charset=utf-8")],
+            })
+            await send({"type": "http.response.body", "body": page})
             return
         if path in ("/mcp", "/mcp/"):
             # vercel.json rewrites /mcp here; normalise for direct calls too.

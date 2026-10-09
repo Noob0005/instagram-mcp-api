@@ -72,12 +72,57 @@ Sanity check: open `https://<project>.vercel.app/healthz` → `{"status":"ok",..
 
 | Var | Required | Purpose |
 | --- | --- | --- |
-| `MCP_AUTH_KEY` | ✅ | protects every tool call |
-| `INSTAGRAM_MCP_SESSION_JSON` | ✅ recommended | saved session so tools work without a fresh login |
+| `MCP_AUTH_KEY` | ✅ | protects every tool call, the `/upload` page and `/api/upload` |
+| `BLOB_READ_WRITE_TOKEN` | ✅ | Vercel Blob token (Storage → Blob → Connect — Vercel injects it automatically). Powers the persistent session store, the upload staging area, the uploads index and the problem log |
+| `SESSION_ENCRYPTION_KEY` | ✅ | Fernet key encrypting the session in Blob. Generate: `python -c "from cryptography.fernet import Fernet;print(Fernet.generate_key().decode())"` |
+| `CRON_SECRET` | ✅ | authenticates the daily cleanup cron (Vercel sends it as `Authorization: Bearer`) |
+| `INSTAGRAM_MCP_SESSION_JSON` | – | **first-time seed only**: used once when Blob has no session yet, then written to Blob and ignored afterwards (redeploys keep the rotated Blob session) |
+| `INSTAGRAM_MCP_SESSION_NAME` | – | session file name in Blob (`sessions/<name>.json`), default `default` |
+| `INSTAGRAM_MCP_BLOB_PREFIX` | – | top-level Blob key prefix, default `instagram-mcp` |
+| `INSTAGRAM_MCP_UPLOAD_TTL_DAYS` | – | days before unposted uploads are purged by the cron, default `7` |
+| `INSTAGRAM_MCP_MAX_UPLOAD_BYTES` | – | size gate on `/upload`, default `268435456` (256 MB) |
 | `INSTAGRAM_MCP_DEDUPE_WINDOW` | – | retry-duplicate suppression (default 600 s) |
 | `INSTAGRAM_MCP_MAX_COMMENTS_PER_HOUR` / `…WRITES_PER_DAY` / `…RED_ACTIONS_PER_DAY` | – | your usual safety caps |
 | `INSTAGRAM_MCP_*_DELAY_*` | – | delay overrides — **keep them small here** (see caveats) |
 | `INSTAGRAM_MCP_PASSWORD` | ⛔ avoid | on cold starts every login would look like a brand-new device |
+
+### Session storage in Blob
+
+The Instagram session (instagrapi settings JSON) is stored encrypted in Vercel
+Blob at `<prefix>/sessions/<name>.json`. On cold start the server reads it from
+Blob; whenever Instagram rotates the session (login, sessionid login, 2FA,
+challenge) the new settings are written straight back. The
+`INSTAGRAM_MCP_SESSION_JSON` env var is only a first-time seed — after the
+initial write the env var is never consulted again, so redeploys no longer
+clobber a rotated session. Without `BLOB_READ_WRITE_TOKEN` the server falls
+back to the local session-file behaviour (desktop / Termux).
+
+### Upload page (`/upload`) + Blob staging
+
+`https://<project>.vercel.app/upload?auth=<MCP_AUTH_KEY>` — same auth gate as
+the MCP endpoint. Pick a file, enter caption / aspect ratio / photo-or-reel;
+the browser posts the bytes **directly to Vercel Blob**, which skips the
+~4.5 MB serverless request-body limit. The file plus its metadata land in the
+uploads index (`<prefix>/uploads/index.json`).
+
+New MCP tools for the staging queue:
+
+| Tool | What it does |
+| --- | --- |
+| `list_uploads` | pending files with captions, sizes, kind, status |
+| `preview_upload` | returns a small JPEG thumbnail as an image (no URL fetching needed); text summary for reels |
+| `post_upload` | downloads the staged file, validates & converts it, publishes to Instagram, deletes the Blob copy on success |
+| `delete_upload` | removes a staged file from Blob without posting |
+| `list_problems` | rejected files and why (bad format, failed post, etc.) |
+
+Validation/conversion happens on the server: photos are converted to a
+feed-ready JPEG at the requested aspect via Pillow (same pipeline as normal
+posting). Reels must be MP4 (H.264 video + AAC audio) — Vercel has no ffmpeg,
+so `.mov`/`.webm`/other containers are **rejected and logged** in the problem
+log rather than converted. Cleanup: the Blob copy is deleted after a
+successful post, and a daily cron (`vercel.json` → `/api/cleanup`, 04:00 UTC)
+purges uploads older than `INSTAGRAM_MCP_UPLOAD_TTL_DAYS` (default 7) that
+were never posted.
 
 ## 5. Security (very important)
 
@@ -91,9 +136,11 @@ Sanity check: open `https://<project>.vercel.app/healthz` → `{"status":"ok",..
 
 ## 6. Serverless caveats (by design)
 
-- **No persistent state:** session, daily counters, dedupe records and the
-  scheduling queue live in `/tmp`, per instance; a cold start resets them. Caps
-  are therefore best-effort here — keep activity low and occasional.
+- **State:** with `BLOB_READ_WRITE_TOKEN` set, the session and the upload
+  staging area persist in Vercel Blob across cold starts and redeploys.
+  Daily counters, dedupe records and the scheduling queue still live in
+  `/tmp`, per instance; a cold start resets them. Caps are therefore
+  best-effort here — keep activity low and occasional.
 - **Function time limit:** `maxDuration: 60` in `vercel.json`. Default delays fit
   (posts ≤ 40 s). **Don't enable `INSTAGRAM_MCP_SAFE_MODE` here** — its 5–15 min
   post delays would exceed the limit. Use a VPS for long-delay Safe Mode.
