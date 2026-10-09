@@ -26,14 +26,23 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
+# admin_ui lives next to api/ (not inside it, so it is not deployed as a separate function).
+_ROOT = _HERE.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
 import cleanup  # noqa: E402
 import mcp_server_asgi  # noqa: E402
 import upload  # noqa: E402
+from admin_ui import handlers as admin  # noqa: E402
 
 
 async def app(scope, receive, send):
     if scope["type"] == "http":
         path = scope.get("path", "") or ""
+        if admin.is_admin_path(path, scope.get("query_string", b"").decode("utf-8", "ignore")):
+            await admin.handle(scope, receive, send)
+            return
         if path.startswith("/api/upload"):
             await upload.app(scope, receive, send)
             return
