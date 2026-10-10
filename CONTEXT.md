@@ -116,6 +116,7 @@ EXCLUDE from bundle: `.venv/`, `__pycache__/`, `dist/`, `build/`, `*.egg-info/`,
 11. [x] Dashboard UI redesign: CRT scanlines/flicker/roll bar, green/cyan/red/white palette, 2 columns on desktop, single column on phones (checked with Playwright at 1280 and 390px).
 12. [~] Routing fixed: /healthz and /upload now reach the right handler via ?route= (rewrite replaced the path). /upload page now needs ?auth=. Still open: /api/upload 405 (needs Network-tab details).
 13. [x] Browser-made thumbnails (canvas photos / first video frame for reels) stored as thumb_pathname; preview_upload uses it; set_upload_caption tool. 140 tests.
+LESSON: anything read from disk at runtime must be inside a .py module (Vercel bundles only .py/imports). Verify deployed paths, not local ones.
 Chat attachments are NOT sent to the server (sandbox can't reach Vercel; base64 too big). Use upload page.
 Other: uploads index read-modify-write race; Termux pydantic fix unconfirmed; photo/GIF comments blocked upstream.
 
@@ -125,6 +126,7 @@ Other: uploads index read-modify-write race; Termux pydantic fix unconfirmed; ph
 - Local server: `python -m instagram_mcp_server` | `python scripts/serve.py --host 0.0.0.0 --port 8080`
 
 ## Progress Log (fold into §5/§6 when done — keep SHORT)
+- 2026-10-10: Upload page was read from public/ at runtime, which Vercel does not bundle (upload_page_missing). Now embedded in admin_ui/upload_page.py; public/upload.html removed.
 - 2026-10-10: Step 11 done: dashboard redesign (140 tests pass).
 - 2026-10-10: Step 13 done: thumbnails + set_upload_caption (140 tests). Steps 10, 12 done.
 - 2026-10-10: Endpoint tester now uses dashboard key by default (23 admin tests pass).

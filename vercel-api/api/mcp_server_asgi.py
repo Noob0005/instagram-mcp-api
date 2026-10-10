@@ -26,7 +26,6 @@ if _VENDOR.is_dir() and str(_VENDOR) not in sys.path:
 
 from instagram_mcp_server.mcp_server import mcp  # noqa: E402
 
-UPLOAD_PAGE_PATH = str(Path(__file__).resolve().parent.parent / "public" / "upload.html")
 
 MCP_PATH = "/api/main"  # path of this function on Vercel (vercel.json maps /mcp here)
 AUTH_KEY = os.environ.get("MCP_AUTH_KEY", "")
@@ -104,12 +103,9 @@ async def app(scope, receive, send):
                     extra_headers=[(b"www-authenticate", b"Bearer")],
                 )
                 return
-            try:
-                with open(UPLOAD_PAGE_PATH, "rb") as fh:
-                    page = fh.read()
-            except OSError:
-                await _send_json(send, 500, '{"error":"upload_page_missing"}')
-                return
+            # Embedded in the bundle (a file read from public/ is not shipped to Vercel).
+            from admin_ui.upload_page import UPLOAD_HTML
+            page = UPLOAD_HTML.encode("utf-8")
             await send({
                 "type": "http.response.start",
                 "status": 200,
