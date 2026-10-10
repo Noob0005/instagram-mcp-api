@@ -106,19 +106,20 @@ EXCLUDE from bundle: `.venv/`, `__pycache__/`, `dist/`, `build/`, `*.egg-info/`,
 1. [x] Dashboard.  2. [x] Blob repair + token leak fix.
 3. [x] Fixed 2 failing tests (monotonic-clock bug in _try_env_relogin; all 134 pass).
 4. [x] Removed 14 tracked .pyc files from git.
-5. [ ] Upstash Redis (env KV_REST_API_URL/TOKEN) for counters/dedupe/queue; add to dashboard checklist.
-6. [ ] Reels on Vercel (moviepy 2.2.1 --no-deps + imageio-ffmpeg; Pillow<12 conflict; 60 s limit).
+5. [skipped by user] Upstash Redis (env KV_REST_API_URL/TOKEN) for counters/dedupe/queue; add to dashboard checklist.
+6. [x] Reels from a public URL: must be real MP4 (H.264+AAC) or rejected with an error (`_reject_non_mp4`, tests/test_reel_url.py). No ffmpeg on Vercel; local-path reels unchanged.
 7. [ ] Rewrite stale vercel-api/README.md.
 8. [ ] USER: create Private Blob store, GEN a valid Fernet key in dashboard, redeploy, add IG session in
        dashboard, run endpoint tester, test upload + post_upload on a SECONDARY account; report errors.
 Other: uploads index read-modify-write race; Termux pydantic fix unconfirmed; photo/GIF comments blocked upstream.
 
 ## 7. Commands
-- Tests (offline): `PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s tests` (134 tests, all pass; needs `pip install fastmcp instagrapi pillow requests cryptography vercel`)
+- Tests (offline): `PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s tests` (137 tests, all pass; needs `pip install fastmcp instagrapi pillow requests cryptography vercel`)
 - Local dashboard: `uvicorn --app-dir vercel-api/api main:app --port 8765` (+ Playwright/Chromium in /opt/pw-browsers)
 - Local server: `python -m instagram_mcp_server` | `python scripts/serve.py --host 0.0.0.0 --port 8080`
 
 ## Progress Log (fold into §5/§6 when done — keep SHORT)
+- 2026-10-10: Step 6 done: URL reels validated as MP4 (137 tests). Step 5 skipped.
 - 2026-10-10: Step 4 done: untracked .pyc files.
 - 2026-10-10: Step 3 done: relogin cooldown treated fresh container (monotonic<300s) as throttled; fixed.
 - 2026-10-10: Dashboard + Blob repair done and pushed; CONTEXT.md rewritten (rules 6/7, §4b, roadmap).

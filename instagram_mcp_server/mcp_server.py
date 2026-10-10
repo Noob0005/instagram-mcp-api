@@ -259,6 +259,19 @@ def _download_if_url(path_or_url: str, suffix: str = ".jpg") -> str:
         return tmp.name
     return path_or_url
 
+def _reject_non_mp4(path: str) -> Optional[str]:
+    """Reels from a public URL must really be MP4 (H.264 + AAC). Returns an error or None.
+
+    Checks the file's bytes, not the URL or Content-Type, because those are unreliable.
+    """
+    from instagram_mcp_server import media_validation  # lazy: avoids an import cycle
+    with open(path, "rb") as fh:
+        info = media_validation.validate_reel(fh.read())
+    if info.get("ok"):
+        return None
+    return ("Error: reel rejected: " + (info.get("reason") or "not an MP4 file")
+            + ". Send a direct public link to an .mp4 file (H.264 video, AAC audio).")
+
 def _cleanup(local: str, original: str):
     """Delete the temp file we created for a URL, data-URI or pasted base64 input."""
     raw = (original or "").strip()
@@ -1776,6 +1789,10 @@ def instagram_post_reel(
         waited = _pace_action("post")
 
         local_v = _download_if_url(video_path_or_url, ".mp4")
+        if video_path_or_url.startswith(("http://", "https://")):
+            rejected = _reject_non_mp4(local_v)
+            if rejected:
+                return rejected
         location = _get_location(location_name)
         media = ig.cl.clip_upload(local_v, full_caption, location=location)
 
