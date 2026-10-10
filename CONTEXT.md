@@ -108,7 +108,7 @@ EXCLUDE from bundle: `.venv/`, `__pycache__/`, `dist/`, `build/`, `*.egg-info/`,
 4. [x] Removed 14 tracked .pyc files from git.
 5. [skipped by user] Upstash Redis (env KV_REST_API_URL/TOKEN) for counters/dedupe/queue; add to dashboard checklist.
 6. [x] Reels from a public URL: must be real MP4 (H.264+AAC) or rejected with an error (`_reject_non_mp4`, tests/test_reel_url.py). No ffmpeg on Vercel; local-path reels unchanged.
-7. [ ] Rewrite stale vercel-api/README.md.
+7. [x] Rewrote vercel-api/README.md (dashboard-first setup, env tiers, reels rules, troubleshooting).
 8. [ ] USER: create Private Blob store, GEN a valid Fernet key in dashboard, redeploy, add IG session in
        dashboard, run endpoint tester, test upload + post_upload on a SECONDARY account; report errors.
 Other: uploads index read-modify-write race; Termux pydantic fix unconfirmed; photo/GIF comments blocked upstream.
@@ -119,6 +119,7 @@ Other: uploads index read-modify-write race; Termux pydantic fix unconfirmed; ph
 - Local server: `python -m instagram_mcp_server` | `python scripts/serve.py --host 0.0.0.0 --port 8080`
 
 ## Progress Log (fold into §5/§6 when done — keep SHORT)
+- 2026-10-10: Step 7 done: README rewritten.
 - 2026-10-10: Step 6 done: URL reels validated as MP4 (137 tests). Step 5 skipped.
 - 2026-10-10: Step 4 done: untracked .pyc files.
 - 2026-10-10: Step 3 done: relogin cooldown treated fresh container (monotonic<300s) as throttled; fixed.
