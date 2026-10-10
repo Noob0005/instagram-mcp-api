@@ -104,12 +104,9 @@ async def app(scope, receive, send):
                     extra_headers=[(b"www-authenticate", b"Bearer")],
                 )
                 return
-            try:
-                with open(UPLOAD_PAGE_PATH, "rb") as fh:
-                    page = fh.read()
-            except OSError:
-                await _send_json(send, 500, '{"error":"upload_page_missing"}')
-                return
+            # Embedded in the bundle (a file read from public/ is not shipped to Vercel).
+            from admin_ui.upload_page import UPLOAD_HTML
+            page = UPLOAD_HTML.encode("utf-8")
             await send({
                 "type": "http.response.start",
                 "status": 200,

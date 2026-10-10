@@ -1,4 +1,10 @@
-<!DOCTYPE html>
+"""The browser upload page, embedded as a string so it ships inside the function.
+
+Vercel only bundles .py files, so a file read from public/ at runtime is missing
+in production (that caused the upload_page_missing error).
+"""
+
+UPLOAD_HTML = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -159,3 +165,4 @@ document.getElementById('go').addEventListener('click', async () => {
 </script>
 </body>
 </html>
+"""
