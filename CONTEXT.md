@@ -114,7 +114,7 @@ EXCLUDE from bundle: `.venv/`, `__pycache__/`, `dist/`, `build/`, `*.egg-info/`,
 9. [ ] Dashboard endpoint tester uses the dashboard's MCP key by default (DONE in progress; verify live).
 10. [ ] AI behaviour: when asked to upload a photo/video, give the login URL + /upload page, never try chat upload.
 11. [ ] Dashboard UI redesign: old-CRT effect, green/cyan/red/white accents, responsive desktop + mobile.
-12. [ ] Upload pipeline: fix /api/upload 405 + /healthz routing (needs user's Network-tab / curl output).
+12. [~] Routing fixed: /healthz and /upload now reach the right handler via ?route= (rewrite replaced the path). /upload page now needs ?auth=. Still open: /api/upload 405 (needs Network-tab details).
 13. [ ] Browser-made thumbnails (canvas for photos, first video frame for reels) + set_upload_caption tool.
 Chat attachments are NOT sent to the server (sandbox can't reach Vercel; base64 too big). Use upload page.
 Other: uploads index read-modify-write race; Termux pydantic fix unconfirmed; photo/GIF comments blocked upstream.

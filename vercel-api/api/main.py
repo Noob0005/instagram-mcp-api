@@ -20,6 +20,7 @@ NOTE: this module must NOT be named api/mcp.py — that shadows the installed
 """
 import sys
 from pathlib import Path
+from urllib.parse import parse_qs
 
 # Ensure sibling modules import cleanly regardless of how Vercel loads us.
 _HERE = Path(__file__).resolve().parent
@@ -37,9 +38,22 @@ import upload  # noqa: E402
 from admin_ui import handlers as admin  # noqa: E402
 
 
+# vercel.json rewrites /upload and /healthz here with ?route=upload|healthz, because a
+# rewrite replaces the request path. Restore the real path so the sub-app sees it.
+_ROUTE_PATHS = {"upload": "/upload", "healthz": "/healthz"}
+
+
 async def app(scope, receive, send):
     if scope["type"] == "http":
         path = scope.get("path", "") or ""
+        qs = scope.get("query_string", b"").decode("utf-8", "ignore")
+        if path.rstrip("/") == "/api/main":
+            route = (parse_qs(qs).get("route") or [""])[0]
+            if route in _ROUTE_PATHS:
+                scope = dict(scope)
+                scope["path"] = _ROUTE_PATHS[route]
+                await mcp_server_asgi.app(scope, receive, send)
+                return
         if admin.is_admin_path(path, scope.get("query_string", b"").decode("utf-8", "ignore")):
             await admin.handle(scope, receive, send)
             return
