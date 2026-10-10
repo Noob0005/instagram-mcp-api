@@ -112,7 +112,7 @@ EXCLUDE from bundle: `.venv/`, `__pycache__/`, `dist/`, `build/`, `*.egg-info/`,
 8. [ ] USER: create Private Blob store, GEN a valid Fernet key in dashboard, redeploy, add IG session in
        dashboard, run endpoint tester, test upload + post_upload on a SECONDARY account; report errors.
 9. [ ] Dashboard endpoint tester uses the dashboard's MCP key by default (DONE in progress; verify live).
-10. [ ] AI behaviour: when asked to upload a photo/video, give the login URL + /upload page, never try chat upload.
+10. [x] AI instructions: for user photos/videos, send them to the /upload page (dashboard link), never base64 from chat.
 11. [ ] Dashboard UI redesign: old-CRT effect, green/cyan/red/white accents, responsive desktop + mobile.
 12. [~] Routing fixed: /healthz and /upload now reach the right handler via ?route= (rewrite replaced the path). /upload page now needs ?auth=. Still open: /api/upload 405 (needs Network-tab details).
 13. [ ] Browser-made thumbnails (canvas for photos, first video frame for reels) + set_upload_caption tool.
