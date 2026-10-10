@@ -138,6 +138,8 @@ async def app(scope, receive, send):
             content_type=str(body.get("content_type") or "application/octet-stream"),
             caption=str(body.get("caption") or ""),
             aspect=str(body.get("aspect") or "auto"),
+            thumb_pathname=(lambda t: t if t.startswith(blob_store.PREFIX + "/uploads/") else None)(
+                str(body.get("thumb_pathname") or "")),
             kind=str(body.get("kind") or "photo"),
         )
         await _send_json(send, 200, {"ok": True, "id": rec["id"],

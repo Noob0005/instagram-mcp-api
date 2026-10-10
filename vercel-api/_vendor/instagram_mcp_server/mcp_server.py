@@ -59,12 +59,13 @@ mcp = FastMCP(
         "comments, DMs, relations, saves, notes, scheduling, reads). "
         "Auto-restores session on startup — call instagram_get_login_status to verify; "
         "instagram_login_with_sessionid is the most reliable login. "
-        "IMAGES FROM CHAT: a chat attachment is NOT visible to this server. Get the picture onto "
-        "the machine first — instagram_upload_image(base64 or data:image data) for screenshots, "
-        "an absolute path / http(s) URL, 'latest' for the newest inbox file, the browser upload "
-        "page for phone photos (same domain as this server, /mcp → /inbox; the exact link appears "
-        "in instagram_inbox_status and in any 'image not found' error), or "
-        "scripts/save_image.py / watch_clipboard.py on this PC. Check waiting files with "
+        "UPLOADING PHOTOS OR VIDEOS THE USER SENDS: a chat attachment is NOT visible to this server, "
+        "and do not try to send chat images as base64. When the user wants to send a photo or video, "
+        "tell them to open the /upload page on this server's domain (their dashboard shows the link, "
+        "with the key already in it), log in, and upload the file there with its caption. Once they "
+        "confirm, call list_uploads, then preview_upload to see it. Other options if the user asks: "
+        "a public http(s) URL to the file, an absolute path, or on a PC with the local server, "
+        "scripts/save_image.py / watch_clipboard.py. Check waiting local files with "
         "instagram_inbox_status; preview framing/size with instagram_inspect_image. "
         "POSTING: instagram_post_photo(image_path_or_url, caption, hashtags, mentions, "
         "tag_users_in_photo, location_name, alt_text, disable_comments, dry_run, aspect) — "
@@ -4051,6 +4052,21 @@ def list_uploads(status: Optional[str] = "pending") -> str:
 
 
 @mcp.tool()
+def set_upload_caption(upload_id: str, caption: str) -> str:
+    """
+    Set or replace the caption of a staged upload (waiting on /upload) before posting.
+    Use this after you have looked at preview_upload and written a caption.
+    """
+    try:
+        from instagram_mcp_server import upload_store
+        if not upload_store.set_caption(upload_id, caption):
+            return str({"status": "error", "error": f"No upload with id {upload_id!r} — check list_uploads"})
+        return str({"status": "ok", "upload_id": upload_id, "caption_preview": (caption or "")[:100]})
+    except Exception as e:
+        return _friendly_error(e, "setting the upload caption")
+
+
+@mcp.tool()
 def preview_upload(upload_id: str) -> Image:
     """
     Return a small JPEG thumbnail of a staged upload so you can eyeball the
@@ -4061,10 +4077,14 @@ def preview_upload(upload_id: str) -> Image:
         rec = upload_store.get_upload(upload_id)
         if not rec:
             raise FileNotFoundError(f"No upload with id {upload_id!r} — check list_uploads")
+        stored = upload_store.fetch_thumb(rec)  # made in the browser at upload time
+        if stored:
+            path = _write_image_temp(stored, ".jpg")
+            return Image(path=path, format="jpeg")
         data = upload_store.fetch_bytes(rec)
         ctype = media_validation.sniff_content_type(data)
         if ctype.startswith("image/"):
-            thumb = media_validation.thumbnail_bytes(data, max_side=256)
+            thumb = media_validation.thumbnail_bytes(data, max_side=512)
             path = _write_image_temp(thumb, ".jpg")
             return Image(path=path, format="jpeg")
         info = media_validation.validate_reel(data)

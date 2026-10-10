@@ -4052,6 +4052,21 @@ def list_uploads(status: Optional[str] = "pending") -> str:
 
 
 @mcp.tool()
+def set_upload_caption(upload_id: str, caption: str) -> str:
+    """
+    Set or replace the caption of a staged upload (waiting on /upload) before posting.
+    Use this after you have looked at preview_upload and written a caption.
+    """
+    try:
+        from instagram_mcp_server import upload_store
+        if not upload_store.set_caption(upload_id, caption):
+            return str({"status": "error", "error": f"No upload with id {upload_id!r} — check list_uploads"})
+        return str({"status": "ok", "upload_id": upload_id, "caption_preview": (caption or "")[:100]})
+    except Exception as e:
+        return _friendly_error(e, "setting the upload caption")
+
+
+@mcp.tool()
 def preview_upload(upload_id: str) -> Image:
     """
     Return a small JPEG thumbnail of a staged upload so you can eyeball the
@@ -4062,10 +4077,14 @@ def preview_upload(upload_id: str) -> Image:
         rec = upload_store.get_upload(upload_id)
         if not rec:
             raise FileNotFoundError(f"No upload with id {upload_id!r} — check list_uploads")
+        stored = upload_store.fetch_thumb(rec)  # made in the browser at upload time
+        if stored:
+            path = _write_image_temp(stored, ".jpg")
+            return Image(path=path, format="jpeg")
         data = upload_store.fetch_bytes(rec)
         ctype = media_validation.sniff_content_type(data)
         if ctype.startswith("image/"):
-            thumb = media_validation.thumbnail_bytes(data, max_side=256)
+            thumb = media_validation.thumbnail_bytes(data, max_side=512)
             path = _write_image_temp(thumb, ".jpg")
             return Image(path=path, format="jpeg")
         info = media_validation.validate_reel(data)

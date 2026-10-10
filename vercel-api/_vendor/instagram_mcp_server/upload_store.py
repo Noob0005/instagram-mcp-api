@@ -80,7 +80,8 @@ def _write_local(path: str, doc: Any) -> None:
 
 def add_upload(*, filename: str, pathname: str, url: Optional[str], size: int,
                content_type: str, caption: str, aspect: str, kind: str,
-               local_path: Optional[str] = None) -> Dict[str, Any]:
+               local_path: Optional[str] = None,
+               thumb_pathname: Optional[str] = None) -> Dict[str, Any]:
     """Register one staged upload. Returns the created record."""
     rec = {
         "id": blob_store.new_upload_id(),
@@ -95,6 +96,7 @@ def add_upload(*, filename: str, pathname: str, url: Optional[str], size: int,
         "uploaded_at": time.time(),
         "status": "pending",
         "local_path": local_path,
+        "thumb_pathname": thumb_pathname or None,
     }
 
     def mutate(index):
@@ -173,6 +175,37 @@ def set_status(upload_id: str, status: str, note: str = "") -> bool:
     else:
         _mutate_local(mutate)
     return changed["v"]
+
+
+def set_caption(upload_id: str, caption: str) -> bool:
+    """Replace the caption of a pending upload. Returns True when the upload was found."""
+    changed = {"v": False}
+
+    def mutate(index):
+        if not isinstance(index, dict):
+            return None
+        for u in index.get("uploads") or []:
+            if u.get("id") == upload_id:
+                u["caption"] = caption or ""
+                u["updated_at"] = time.time()
+                changed["v"] = True
+        return index
+
+    if blob_available():
+        blob_store.update_json(blob_store.index_key(), mutate, INDEX_DEFAULT.copy())
+    else:
+        _mutate_local(mutate)
+    return changed["v"]
+
+
+def fetch_thumb(rec: Dict[str, Any]) -> Optional[bytes]:
+    """Return the stored thumbnail bytes, or None when the upload has none."""
+    if not rec.get("thumb_pathname") or not blob_available():
+        return None
+    try:
+        return blob_store.get_bytes(rec["thumb_pathname"])
+    except Exception:
+        return None
 
 
 def remove_upload(upload_id: str) -> Optional[Dict[str, Any]]:
@@ -258,10 +291,16 @@ def fetch_bytes(rec: Dict[str, Any]) -> bytes:
 def delete_blob_file(rec: Dict[str, Any]) -> None:
     """Remove the staged media object itself (not the index record)."""
     target = rec.get("pathname") or rec.get("url")
+    if blob_available():
+        if rec.get("thumb_pathname"):
+            try:
+                blob_store.delete(rec["thumb_pathname"])
+            except Exception:
+                pass
+        if target:
+            blob_store.delete(target)
     if not target:
         return
-    if blob_available():
-        blob_store.delete(target)
     local = rec.get("local_path")
     if local:
         try:
