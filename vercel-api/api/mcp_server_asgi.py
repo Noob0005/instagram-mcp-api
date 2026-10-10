@@ -26,7 +26,6 @@ if _VENDOR.is_dir() and str(_VENDOR) not in sys.path:
 
 from instagram_mcp_server.mcp_server import mcp  # noqa: E402
 
-UPLOAD_PAGE_PATH = str(Path(__file__).resolve().parent.parent / "public" / "upload.html")
 
 MCP_PATH = "/api/main"  # path of this function on Vercel (vercel.json maps /mcp here)
 AUTH_KEY = os.environ.get("MCP_AUTH_KEY", "")
