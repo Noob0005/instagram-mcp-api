@@ -105,7 +105,7 @@ EXCLUDE from bundle: `.venv/`, `__pycache__/`, `dist/`, `build/`, `*.egg-info/`,
 ## 6. ROADMAP / Remaining (do ONE step per turn, in order)
 1. [x] Dashboard.  2. [x] Blob repair + token leak fix.
 3. [x] Fixed 2 failing tests (monotonic-clock bug in _try_env_relogin; all 134 pass).
-4. [ ] Remove tracked .pyc files (`git rm -r --cached`).
+4. [x] Removed 14 tracked .pyc files from git.
 5. [ ] Upstash Redis (env KV_REST_API_URL/TOKEN) for counters/dedupe/queue; add to dashboard checklist.
 6. [ ] Reels on Vercel (moviepy 2.2.1 --no-deps + imageio-ffmpeg; Pillow<12 conflict; 60 s limit).
 7. [ ] Rewrite stale vercel-api/README.md.
@@ -119,5 +119,6 @@ Other: uploads index read-modify-write race; Termux pydantic fix unconfirmed; ph
 - Local server: `python -m instagram_mcp_server` | `python scripts/serve.py --host 0.0.0.0 --port 8080`
 
 ## Progress Log (fold into §5/§6 when done — keep SHORT)
+- 2026-10-10: Step 4 done: untracked .pyc files.
 - 2026-10-10: Step 3 done: relogin cooldown treated fresh container (monotonic<300s) as throttled; fixed.
 - 2026-10-10: Dashboard + Blob repair done and pushed; CONTEXT.md rewritten (rules 6/7, §4b, roadmap).
