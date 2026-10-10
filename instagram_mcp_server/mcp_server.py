@@ -704,7 +704,7 @@ def _try_env_relogin() -> bool:
     if not password:
         return False
     now = time.monotonic()
-    if now - _last_relogin_attempt < _relogin_cooldown():
+    if _last_relogin_attempt and now - _last_relogin_attempt < _relogin_cooldown():
         return False
     _last_relogin_attempt = now
     username = os.environ.get("INSTAGRAM_MCP_USERNAME", "")
