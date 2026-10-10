@@ -96,7 +96,14 @@ async def app(scope, receive, send):
             await _send_json(send, 200, '{"status":"ok","server":"instagram-mcp","stateless":true}')
             return
         if path in ("/upload", "/upload/"):
-            # Browser upload page — protected by the SAME MCP_AUTH_KEY gate below.
+            # Browser upload page — protected by the SAME MCP_AUTH_KEY gate.
+            if not AUTH_KEY or not _authorized(scope):
+                await _send_json(
+                    send, 401,
+                    '{"error":"unauthorized","hint":"open /upload?auth=<MCP_AUTH_KEY>"}',
+                    extra_headers=[(b"www-authenticate", b"Bearer")],
+                )
+                return
             try:
                 with open(UPLOAD_PAGE_PATH, "rb") as fh:
                     page = fh.read()

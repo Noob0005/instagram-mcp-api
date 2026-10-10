@@ -73,6 +73,37 @@ async function jpost(url, body) {
   return r.json();
 }
 
+// Small JPEG preview (max 512px) made in the browser: photos via the canvas, reels via the
+// first video frame. The assistant looks at this to write captions. Returns null on failure.
+async function makeThumb(file, kind) {
+  const url = URL.createObjectURL(file);
+  try {
+    let source, w, h;
+    if (kind === 'reel') {
+      source = await new Promise((resolve, reject) => {
+        const v = document.createElement('video');
+        v.muted = true; v.playsInline = true; v.preload = 'auto';
+        v.onloadeddata = () => { v.currentTime = Math.min(0.5, (v.duration || 1) / 2); };
+        v.onseeked = () => resolve(v);
+        v.onerror = () => reject(new Error('video frame unreadable'));
+        v.src = url;
+      });
+      w = source.videoWidth; h = source.videoHeight;
+    } else {
+      source = await createImageBitmap(file); w = source.width; h = source.height;
+    }
+    const scale = Math.min(1, 512 / Math.max(w, h));
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(w * scale)); c.height = Math.max(1, Math.round(h * scale));
+    c.getContext('2d').drawImage(source, 0, 0, c.width, c.height);
+    return await new Promise((resolve) => c.toBlob(resolve, 'image/jpeg', 0.8));
+  } catch (e) {
+    return null;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 document.getElementById('go').addEventListener('click', async () => {
   const f = document.getElementById('file').files[0];
   if (!f) return say('Pick a file first.');
@@ -97,10 +128,28 @@ document.getElementById('go').addEventListener('click', async () => {
       onUploadProgress: (e) => say('Uploading… ' + Math.round(e.percentage) + '%'),
     });
     const pathname = blob.pathname, url = blob.url;
+    // 2b. Optional preview thumbnail. Failure is not fatal: the server can make one for photos.
+    let thumbPathname = '';
+    say('Making preview…');
+    const thumb = await makeThumb(f, kind);
+    if (thumb) {
+      try {
+        const tslot = await jpost('/api/upload', { action: 'begin', filename: 'thumb.jpg',
+                                                   size: thumb.size, content_type: 'image/jpeg', kind });
+        const tb = await upload(tslot.pathname, thumb, {
+          access: tslot.access || 'private',
+          handleUploadUrl: tslot.handle_upload_url || '/api/blob-token',
+          clientPayload: JSON.stringify({ key: AUTH, kind }),
+          contentType: 'image/jpeg',
+        });
+        thumbPathname = tb.pathname;
+      } catch (e) { thumbPathname = ''; }
+    }
     // 3. Register metadata only — the bytes never touch the serverless function.
     say('Registering…');
     await jpost('/api/upload', { action: 'commit', filename: f.name, pathname, url,
-                                 size: f.size, content_type: f.type, kind, aspect, caption });
+                                 size: f.size, content_type: f.type, kind, aspect, caption,
+                                 thumb_pathname: thumbPathname });
     say('✅ Uploaded! Tell the assistant to run list_uploads — it will see this file with its caption.');
     document.getElementById('caption').value = '';
   } catch (e) {

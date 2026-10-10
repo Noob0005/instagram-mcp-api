@@ -111,6 +111,12 @@ EXCLUDE from bundle: `.venv/`, `__pycache__/`, `dist/`, `build/`, `*.egg-info/`,
 7. [x] Rewrote vercel-api/README.md (dashboard-first setup, env tiers, reels rules, troubleshooting).
 8. [ ] USER: create Private Blob store, GEN a valid Fernet key in dashboard, redeploy, add IG session in
        dashboard, run endpoint tester, test upload + post_upload on a SECONDARY account; report errors.
+9. [ ] Dashboard endpoint tester uses the dashboard's MCP key by default (DONE in progress; verify live).
+10. [x] AI instructions: for user photos/videos, send them to the /upload page (dashboard link), never base64 from chat.
+11. [x] Dashboard UI redesign: CRT scanlines/flicker/roll bar, green/cyan/red/white palette, 2 columns on desktop, single column on phones (checked with Playwright at 1280 and 390px).
+12. [~] Routing fixed: /healthz and /upload now reach the right handler via ?route= (rewrite replaced the path). /upload page now needs ?auth=. Still open: /api/upload 405 (needs Network-tab details).
+13. [x] Browser-made thumbnails (canvas photos / first video frame for reels) stored as thumb_pathname; preview_upload uses it; set_upload_caption tool. 140 tests.
+Chat attachments are NOT sent to the server (sandbox can't reach Vercel; base64 too big). Use upload page.
 Other: uploads index read-modify-write race; Termux pydantic fix unconfirmed; photo/GIF comments blocked upstream.
 
 ## 7. Commands
@@ -119,6 +125,9 @@ Other: uploads index read-modify-write race; Termux pydantic fix unconfirmed; ph
 - Local server: `python -m instagram_mcp_server` | `python scripts/serve.py --host 0.0.0.0 --port 8080`
 
 ## Progress Log (fold into §5/§6 when done — keep SHORT)
+- 2026-10-10: Step 11 done: dashboard redesign (140 tests pass).
+- 2026-10-10: Step 13 done: thumbnails + set_upload_caption (140 tests). Steps 10, 12 done.
+- 2026-10-10: Endpoint tester now uses dashboard key by default (23 admin tests pass).
 - 2026-10-10: Step 7 done: README rewritten.
 - 2026-10-10: Step 6 done: URL reels validated as MP4 (137 tests). Step 5 skipped.
 - 2026-10-10: Step 4 done: untracked .pyc files.

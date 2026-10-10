@@ -11,7 +11,7 @@
     },
     {
       "source": "/upload",
-      "destination": "/api/main"
+      "destination": "/api/main?route=upload"
     },
     {
       "source": "/mcp",
@@ -23,7 +23,7 @@
     },
     {
       "source": "/healthz",
-      "destination": "/api/main"
+      "destination": "/api/main?route=healthz"
     }
   ],
   "functions": {
