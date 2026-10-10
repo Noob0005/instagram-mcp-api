@@ -111,6 +111,12 @@ EXCLUDE from bundle: `.venv/`, `__pycache__/`, `dist/`, `build/`, `*.egg-info/`,
 7. [x] Rewrote vercel-api/README.md (dashboard-first setup, env tiers, reels rules, troubleshooting).
 8. [ ] USER: create Private Blob store, GEN a valid Fernet key in dashboard, redeploy, add IG session in
        dashboard, run endpoint tester, test upload + post_upload on a SECONDARY account; report errors.
+9. [ ] Dashboard endpoint tester uses the dashboard's MCP key by default (DONE in progress; verify live).
+10. [ ] AI behaviour: when asked to upload a photo/video, give the login URL + /upload page, never try chat upload.
+11. [ ] Dashboard UI redesign: old-CRT effect, green/cyan/red/white accents, responsive desktop + mobile.
+12. [ ] Upload pipeline: fix /api/upload 405 + /healthz routing (needs user's Network-tab / curl output).
+13. [ ] Browser-made thumbnails (canvas for photos, first video frame for reels) + set_upload_caption tool.
+Chat attachments are NOT sent to the server (sandbox can't reach Vercel; base64 too big). Use upload page.
 Other: uploads index read-modify-write race; Termux pydantic fix unconfirmed; photo/GIF comments blocked upstream.
 
 ## 7. Commands
@@ -119,6 +125,7 @@ Other: uploads index read-modify-write race; Termux pydantic fix unconfirmed; ph
 - Local server: `python -m instagram_mcp_server` | `python scripts/serve.py --host 0.0.0.0 --port 8080`
 
 ## Progress Log (fold into §5/§6 when done — keep SHORT)
+- 2026-10-10: Endpoint tester now uses dashboard key by default (23 admin tests pass).
 - 2026-10-10: Step 7 done: README rewritten.
 - 2026-10-10: Step 6 done: URL reels validated as MP4 (137 tests). Step 5 skipped.
 - 2026-10-10: Step 4 done: untracked .pyc files.

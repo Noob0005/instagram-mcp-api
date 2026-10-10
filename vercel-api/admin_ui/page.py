@@ -154,11 +154,11 @@ label{display:block; font-size:11px; letter-spacing:.18em; color:var(--dim); mar
 
     <section class="panel" id="pTest">
       <h2><em>03</em>ENDPOINT TEST</h2>
-      <label for="tk">TYPE YOUR MCP KEY TO TEST IT</label>
+      <label for="tk">OPTIONAL: TYPE A DIFFERENT KEY TO TEST IT</label>
       <div class="line"><input id="tk" type="password" autocomplete="off" style="flex:1 1 260px">
         <button id="testBtn">[ RUN TESTS ]</button></div>
       <div class="log" id="testLog" aria-live="polite"></div>
-      <p class="hint">Runs from your browser against this site. A wrong key should be rejected; the right key should pass.</p>
+      <p class="hint">Leave the box empty to test with the MCP key from your dashboard session. A wrong key should be rejected; the right key should pass.</p>
     </section>
 
     <section class="panel" id="pSession">
@@ -381,8 +381,12 @@ function parseRpc(text) {
   try { return JSON.parse(line ? line.slice(5) : text); } catch (e) { return null; }
 }
 $("#testBtn").addEventListener("click", async () => {
-  const key = $("#tk").value.trim(); const box = $("#testLog"); box.replaceChildren();
-  if (!key) { logLine(box, "warn", "Type your MCP key in the box first."); return; }
+  const box = $("#testLog"); box.replaceChildren();
+  let key = $("#tk").value.trim();
+  if (!key) {
+    try { const d = await getReveal(); key = (d && d.key) || ""; } catch (e) { key = ""; }
+  }
+  if (!key) { logLine(box, "warn", "No MCP_AUTH_KEY is set on the server, so there is nothing to test with. Set it in Vercel first."); return; }
   const hdr = (k) => ({"Content-Type": "application/json", "Accept": "application/json, text/event-stream",
     "Authorization": "Bearer " + k});
   const rpc = (method, params, id) => JSON.stringify({jsonrpc: "2.0", id, method, params});
