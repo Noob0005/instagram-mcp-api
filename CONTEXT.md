@@ -126,6 +126,7 @@ Other: uploads index read-modify-write race; Termux pydantic fix unconfirmed; ph
 - Local server: `python -m instagram_mcp_server` | `python scripts/serve.py --host 0.0.0.0 --port 8080`
 
 ## Progress Log (fold into §5/§6 when done — keep SHORT)
+- 2026-10-19: Dashboard routes: admin-only pre-configured extension zip (admin=extension) and secret reveal for MCP_AUTH_KEY/SESSION_ENCRYPTION_KEY only (admin=secret).
 - 2026-10-19: Extension: defaults.json applied on install (pre-configured zip); build_extension.py regenerates public zip + admin_ui/extension_files.py. Run it after editing public/extension.
 - 2026-10-19: Browser extension (Chrome + Firefox) in vercel-api/public/extension with zip + README; dashboard link; cross-language Fernet test. Sync prompt at most once per interval.
 - 2026-10-19: Browser extension plan step 1 done: POST /api/session-sync (Fernet payload, MCP key auth, reuses dashboard cookie login). 148 tests.

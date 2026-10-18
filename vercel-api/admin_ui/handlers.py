@@ -162,6 +162,10 @@ def _storage_status() -> dict:
         return {"backend": "unknown", "error": f"{type(e).__name__}: {e}"}
 
 
+# Variables the dashboard may reveal to a logged-in admin. Never add BLOB or CRON values here.
+SECRET_REVEALABLE = ("MCP_AUTH_KEY", "SESSION_ENCRYPTION_KEY")
+
+
 async def handle(scope, receive, send) -> None:
     path = scope.get("path", "")
     method = scope.get("method", "GET").upper()
@@ -229,6 +233,28 @@ async def handle(scope, receive, send) -> None:
             "storage": _storage_status(),
             "origin": core.origin_from_headers(_headers(scope)),
         })
+        return
+
+    if route == "extension" and method == "GET":
+        # Pre-configured browser extension: embeds this server's address and keys, so it is
+        # only ever sent to a logged-in dashboard session (never from the public /extension/ folder).
+        from admin_ui import extension_pack
+        origin = core.origin_from_headers(_headers(scope))
+        data = extension_pack.build(origin, os.environ.get("MCP_AUTH_KEY", "").strip(),
+                                    os.environ.get("SESSION_ENCRYPTION_KEY", "").strip(), configured=True)
+        await _send(send, 200, data, b"application/zip",
+                    [(b"content-disposition", b'attachment; filename="instagram-mcp-sync-configured.zip"'),
+                     (b"cache-control", b"no-store")])
+        return
+
+    if route == "secret" and method == "POST":
+        # Reveal one secret the dashboard needs (logged-in only). Other variables are never revealed.
+        body = await _read_json(receive)
+        name = str((body or {}).get("name", ""))
+        if name not in SECRET_REVEALABLE:
+            await _json(send, 400, {"error": "This variable cannot be revealed here."})
+            return
+        await _json(send, 200, {"name": name, "value": os.environ.get(name, "").strip()})
         return
 
     if route == "reveal" and method == "POST":
