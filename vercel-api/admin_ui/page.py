@@ -63,24 +63,47 @@ header.top{display:flex; flex-wrap:wrap; justify-content:space-between; gap:6px 
 .panel::after{bottom:-1px; right:-1px; border-left:0; border-top:0}
 .panel > h2{margin:0 0 14px; font-size:12px; letter-spacing:.22em; color:var(--cyan); font-weight:700;
   text-shadow:0 0 8px rgba(94,240,255,.45)}
-.panel > h2 em{color:var(--dim); font-style:normal; margin-right:.6em}
+.panel > h2 em,details > summary em{color:var(--dim); font-style:normal; margin-right:.6em}
 .hint{color:var(--dim); font-size:12px; margin:6px 0 0}
+.hint a,.hint a:visited{color:var(--cyan)}
 .banner{padding:10px 12px; border:1px solid; margin:0 0 14px; font-size:13px; letter-spacing:.03em}
 .banner.good{border-color:var(--faint); color:var(--fg)}
 .banner.bad{border-color:var(--red); color:var(--red); background:rgba(255,92,92,.08)}
 .banner.warn{border-color:var(--cyan); color:var(--cyan); background:rgba(94,240,255,.06)}
-.group{margin:16px 0 6px; font-size:11px; letter-spacing:.18em; color:var(--cyan); opacity:.85}
-.row{display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 12px; align-items:start;
-  padding:8px 0; border-top:1px dashed var(--faint)}
+.kv{display:grid; grid-template-columns:max-content minmax(0,1fr); gap:8px 16px; margin:14px 0 0; font-size:13px}
+.kv dt{color:var(--cyan); letter-spacing:.14em; font-size:11px; padding-top:2px}
+.kv dd{margin:0; color:var(--white); overflow-wrap:anywhere}
+.sub{font-size:12px; letter-spacing:.2em; color:var(--white); margin:22px 0 6px; font-weight:700}
+.btns{margin-top:12px}
+
+/* collapsible sections */
+details > summary{cursor:pointer; list-style:none; color:var(--cyan); letter-spacing:.22em;
+  font-size:12px; font-weight:700; text-shadow:0 0 8px rgba(94,240,255,.45); padding:2px 0 4px}
+details > summary::-webkit-details-marker{display:none}
+details > summary::before{content:"\25B8  "; color:var(--dim)}
+details[open] > summary::before{content:"\25BE  "}
+details[open] > summary{margin-bottom:14px}
+details.group{border-top:1px dashed var(--faint); margin-top:14px; padding-top:4px}
+details.group > summary{color:var(--white); letter-spacing:.14em; font-size:11px; font-weight:400;
+  text-shadow:none; padding:8px 0}
+details.group[open] > summary{margin-bottom:4px}
+
+/* environment rows */
+.row{display:block; padding:12px 0; border-top:1px dashed var(--faint)}
+.rowhead{display:flex; justify-content:space-between; align-items:baseline; gap:4px 12px; flex-wrap:wrap}
 .row .name{overflow-wrap:anywhere; color:var(--white)}
-.row .desc{color:var(--dim); font-size:12px; grid-column:1 / 3}
-.row .note{color:var(--cyan); font-size:12px; grid-column:1 / 3}
+.row .desc{color:var(--dim); font-size:12px; margin-top:4px}
+.row .note{color:var(--cyan); font-size:12px; margin-top:2px}
+.row .box{margin-top:10px}
+.acts{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px}
+.genout{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:8px; width:100%}
+.genout code{word-break:break-all}
+.genout .hint{width:100%; margin:0}
 .tag{font-weight:700; letter-spacing:.06em; white-space:nowrap}
 .tag.ok{color:var(--fg)} .tag.unset{color:var(--faint)}
 .tag.missing,.tag.danger{color:var(--red)} .tag.invalid,.tag.weak{color:var(--white); background:rgba(94,240,255,.15); padding:0 4px}
 .tag.danger{animation:blink 1.4s steps(1) infinite}
-.gen{grid-column:1 / 3; margin-top:4px}
-.genout{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:6px}
+
 code,.box{font-family:var(--mono); background:#010301; border:1px solid var(--line);
   padding:8px 10px; word-break:break-all; color:var(--cyan); text-shadow:none}
 button{font:inherit; cursor:pointer; color:var(--fg); background:transparent;
@@ -91,6 +114,10 @@ button.alt{border-color:var(--cyan); color:var(--cyan)}
 button.alt:hover,button.alt:focus-visible{background:var(--cyan); color:#021004}
 button:disabled{opacity:.4; cursor:default}
 button.on{background:var(--cyan); border-color:var(--cyan); color:#021004; text-shadow:none}
+.btn{display:inline-flex; align-items:center; justify-content:center; min-height:44px; padding:0 16px;
+  border:1px solid var(--cyan); color:var(--cyan); text-decoration:none; letter-spacing:.1em;
+  font-size:12px; text-shadow:none}
+.btn:hover,.btn:focus-visible{background:var(--cyan); color:#021004; outline:none}
 input{font:inherit; color:var(--white); background:#010301; border:1px solid var(--line);
   padding:9px 10px; width:100%; min-height:42px; text-shadow:none; font-size:16px}
 input:focus{outline:1px solid var(--cyan); border-color:var(--cyan)}
@@ -103,25 +130,24 @@ label{display:block; font-size:11px; letter-spacing:.16em; color:var(--cyan); ma
   font-size:12.5px; text-shadow:none}
 .log .ok{color:var(--fg)} .log .bad{color:var(--red)} .log .warn{color:var(--cyan)}
 .log .t{color:var(--faint)}
-.center{max-width:460px; width:100%; margin:6vh auto 0; grid-column:1 / -1}
+.center{max-width:460px; width:100%; margin:6vh auto 0}
 .err{color:var(--red); min-height:1.4em; margin:10px 0 0; font-size:13px}
 .hidden{display:none !important}
-.ep{display:grid; grid-template-columns:64px minmax(0,1fr) auto; gap:4px 12px; padding:8px 0;
-  border-top:1px dashed var(--faint); align-items:center}
-.ep .m{color:var(--cyan); font-size:12px}
+.foot{justify-content:space-between; margin-top:6px}
+
 /* Two columns on wide screens; one column on phones */
 @media (min-width:980px){
   #app{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:0 18px; align-items:start}
-  #app > .panel.wide, #app > .line{grid-column:1 / -1}
+  #app > .panel.wide, #app > .foot{grid-column:1 / -1}
 }
 @media (max-width:620px){
   main{padding:14px 12px 56px}
   .panel{padding:18px 12px 14px}
-  .ep{grid-template-columns:52px minmax(0,1fr)} .ep button{grid-column:1 / 3; width:100%}
-  .line > button, .line > input{width:100%}
+  .line > button, .line > input, .line > .btn{width:100%}
   .genout > button{width:100%}
-  .row{grid-template-columns:minmax(0,1fr)} .row .tag{justify-self:start}
-  .row .desc,.row .note,.gen{grid-column:1 / -1}
+  .acts > button{flex:1 1 140px}
+  .foot{flex-direction:column; align-items:stretch; gap:10px}
+  .row .box{font-size:12px}
   .log{max-height:45vh}
 }
 @media (pointer:coarse){ button{min-height:46px} }
@@ -149,79 +175,100 @@ label{display:block; font-size:11px; letter-spacing:.16em; color:var(--cyan); ma
     <p class="hint" id="loginHint"></p>
   </section>
 
-  <!-- SETUP (no auth configured) -->
+  <!-- SETUP (no auth configured yet) -->
   <section id="setup" class="hidden">
-    <div class="banner bad">&#9888; DASHBOARD LOCKED: no MCP_AUTH_KEY is set. Add the required variables below in
-    Vercel &rarr; Settings &rarr; Environment Variables, then redeploy.</div>
+    <div class="banner bad" id="setupNote">&#9888; DASHBOARD LOCKED: set MCP_AUTH_KEY (or ADMIN_USERNAME + ADMIN_PASSWORD)
+      in Vercel &rarr; Settings &rarr; Environment Variables, redeploy, then reload.</div>
+    <section class="panel">
+      <h2><em>00</em>SETUP // ENVIRONMENT</h2>
+      <div id="setupBanner"></div>
+      <div id="setupRows"></div>
+    </section>
   </section>
 
   <!-- DASHBOARD -->
   <div id="app" class="hidden">
-    <section class="panel wide" id="pEnv">
-      <h2><em>01</em>SYSTEM CHECK // ENVIRONMENT</h2>
+    <section class="panel" id="pStatus">
+      <h2><em>01</em>STATUS</h2>
       <div id="envBanner"></div>
-      <div id="envRows"></div>
-      <p class="hint">Values are never shown here, only whether each variable is set. After changing variables in
-      Vercel you must redeploy.</p>
+      <dl class="kv">
+        <dt>AUTH</dt><dd id="kvMode">&mdash;</dd>
+        <dt>STORAGE</dt><dd id="kvStorage">&mdash;</dd>
+        <dt>SERVER</dt><dd id="kvOrigin">&mdash;</dd>
+      </dl>
     </section>
 
     <section class="panel" id="pConnect">
-      <h2><em>02</em>CONNECT // MCP URL</h2>
-      <div class="line">
-        <div class="box" id="mcpUrl">&mdash;</div>
+      <h2><em>02</em>CONNECT</h2>
+      <p class="hint">Your MCP URL contains the key. Treat it like a password.</p>
+      <div class="line" style="margin-top:12px">
+        <div class="box" id="mcpUrl">&hellip;</div>
         <button id="revealBtn" class="alt">[ REVEAL ]</button>
-        <button id="copyUrlBtn">[ COPY URL ]</button>
       </div>
-      <p class="hint">Paste the full URL into your AI app as a custom MCP connector. Treat it like a password.</p>
-        <p class="hint"><a href="/extension/instagram-mcp-sync.zip" style="color:var(--cyan)">[ DOWNLOAD BROWSER SYNC EXTENSION ]</a> &mdash; keeps your Instagram login fresh from your own browser.</p>
-      <div style="margin-top:14px">
-        <div class="ep"><span class="m">ANY</span><span>/mcp</span><button class="alt" data-copy="mcp">[ COPY ]</button></div>
-        <div class="ep"><span class="m">GET</span><span>/healthz</span><button class="alt" data-copy="health">[ COPY ]</button></div>
-        <div class="ep"><span class="m">GET</span><span>/upload</span><button class="alt" data-copy="upload">[ COPY ]</button></div>
-        <div class="ep"><span class="m">POST</span><span>/api/upload</span><span></span></div>
-        <div class="ep"><span class="m">GET</span><span>/api/cleanup (cron)</span><span></span></div>
+      <div class="line btns">
+        <button id="copyUrlBtn">[ COPY MCP URL ]</button>
+        <button class="alt" data-copy="health">[ COPY HEALTH URL ]</button>
+        <button class="alt" data-copy="upload">[ COPY UPLOAD PAGE ]</button>
       </div>
+
+      <h3 class="sub">BROWSER SYNC EXTENSION</h3>
+      <p class="hint">Chrome or Firefox. It sends your Instagram login to this server, encrypted, so the session stays fresh.</p>
+      <div class="line btns">
+        <a class="btn" href="/api/main?admin=extension" download>[ DOWNLOAD CONFIGURED EXTENSION ]</a>
+      </div>
+      <p class="hint">Ready to use: this server's address and keys are already filled in. Don't share the file.</p>
+      <p class="hint">Without keys: <a href="/extension/instagram-mcp-sync.zip">instagram-mcp-sync.zip</a>
+        &middot; <a href="/extension/README.md">setup guide</a> (you enter the address and keys yourself).</p>
+    </section>
+
+    <section class="panel wide" id="pEnv">
+      <h2><em>03</em>ENVIRONMENT</h2>
+      <p class="hint">Values stay hidden. Press SHOW to reveal MCP_AUTH_KEY or SESSION_ENCRYPTION_KEY. Optional and
+        dangerous groups are collapsed. After changing a variable in Vercel, redeploy.</p>
+      <div id="envRows"></div>
     </section>
 
     <section class="panel" id="pTest">
-      <h2><em>03</em>ENDPOINT TEST</h2>
-      <label for="tk">OPTIONAL: TYPE A DIFFERENT KEY TO TEST IT</label>
-      <div class="line"><input id="tk" type="password" autocomplete="off" style="flex:1 1 260px">
-        <button id="testBtn">[ RUN TESTS ]</button></div>
-      <div class="log" id="testLog" aria-live="polite"></div>
-      <p class="hint">Leave the box empty to test with the MCP key from your dashboard session. A wrong key should be rejected; the right key should pass.</p>
+      <details>
+        <summary><em>04</em>ENDPOINT TEST</summary>
+        <label for="tk">OPTIONAL: TYPE A DIFFERENT KEY TO TEST IT</label>
+        <div class="line"><input id="tk" type="password" autocomplete="off" style="flex:1 1 220px">
+          <button id="testBtn">[ RUN TESTS ]</button></div>
+        <div class="log" id="testLog" aria-live="polite"></div>
+        <p class="hint">Leave the box empty to test with the MCP key from your dashboard session. A wrong key should be rejected; the right key should pass.</p>
+      </details>
     </section>
 
     <section class="panel" id="pSession">
-      <h2><em>04</em>INSTAGRAM SESSION</h2>
-      <div class="banner warn" id="storeBanner"></div>
-      <div class="tabs">
-        <button id="tabCookie" class="on">COOKIE</button>
-        <button id="tabPass" class="alt">USERNAME + PASSWORD</button>
-      </div>
-      <div id="formCookie">
-        <label for="sid">SESSIONID COOKIE</label><input id="sid" type="password" autocomplete="off">
-        <label for="sun">USERNAME (OPTIONAL)</label><input id="sun" autocomplete="off">
-        <p class="hint">Log in at instagram.com in your own browser first and solve any captcha there. Then press F12 &rarr;
-        Application &rarr; Cookies &rarr; instagram.com &rarr; copy the value of <b>sessionid</b>.</p>
-        <div class="line" style="margin-top:12px"><button id="saveCookie">[ SAVE SESSION ]</button></div>
-      </div>
-      <div id="formPass" class="hidden">
-        <label for="iun">INSTAGRAM USERNAME</label><input id="iun" autocomplete="off">
-        <label for="ipw">INSTAGRAM PASSWORD</label><input id="ipw" type="password" autocomplete="off">
-        <p class="hint">Fallback only. Logins from Vercel's servers often trigger a security check, and a captcha
-        cannot be solved here.</p>
-        <div class="line" style="margin-top:12px"><button id="savePass">[ LOG IN ]</button></div>
-      </div>
-      <div id="codeBox" class="hidden">
-        <label for="code" id="codeLabel">VERIFICATION CODE</label>
-        <div class="line"><input id="code" autocomplete="one-time-code" style="flex:1 1 200px"><button id="sendCode">[ SUBMIT CODE ]</button></div>
-      </div>
-      <div class="line" style="margin-top:12px"><button class="alt" id="checkSession">[ CHECK STATUS ]</button></div>
-      <div class="log" id="sessLog" aria-live="polite"></div>
+      <details open>
+        <summary><em>05</em>INSTAGRAM SESSION</summary>
+        <div class="banner warn" id="storeBanner"></div>
+        <div class="tabs">
+          <button id="tabCookie" class="on">COOKIE</button>
+          <button id="tabPass" class="alt">USERNAME + PASSWORD</button>
+        </div>
+        <div id="formCookie">
+          <label for="sid">SESSIONID COOKIE</label><input id="sid" type="password" autocomplete="off">
+          <label for="sun">USERNAME (OPTIONAL)</label><input id="sun" autocomplete="off">
+          <p class="hint">Easiest: use the browser extension, which syncs this for you. Manual: log in at instagram.com, solve any captcha there, then copy the <b>sessionid</b> cookie (F12 &rarr; Application &rarr; Cookies).</p>
+          <div class="line btns"><button id="saveCookie">[ SAVE SESSION ]</button></div>
+        </div>
+        <div id="formPass" class="hidden">
+          <label for="iun">INSTAGRAM USERNAME</label><input id="iun" autocomplete="off">
+          <label for="ipw">INSTAGRAM PASSWORD</label><input id="ipw" type="password" autocomplete="off">
+          <p class="hint">Fallback only. Logins from Vercel's servers often trigger a security check, and a captcha cannot be solved here.</p>
+          <div class="line btns"><button id="savePass">[ LOG IN ]</button></div>
+        </div>
+        <div id="codeBox" class="hidden">
+          <label for="code" id="codeLabel">VERIFICATION CODE</label>
+          <div class="line"><input id="code" autocomplete="one-time-code" style="flex:1 1 200px"><button id="sendCode">[ SUBMIT CODE ]</button></div>
+        </div>
+        <div class="line btns"><button class="alt" id="checkSession">[ CHECK STATUS ]</button></div>
+        <div class="log" id="sessLog" aria-live="polite"></div>
+      </details>
     </section>
 
-    <div class="line" style="justify-content:space-between">
+    <div class="line foot">
       <span class="hint">SESSION OPEN &middot; 8 HOURS</span>
       <button class="alt" id="logoutBtn">[ LOG OUT ]</button>
     </div>
@@ -279,20 +326,29 @@ const GEN = {
   SESSION_ENCRYPTION_KEY: () => b64url(rand(32)),
   ADMIN_PASSWORD: () => password(24),
 };
+// Secrets the dashboard may reveal to a logged-in admin (the server enforces the same list).
+const SECRETS = {MCP_AUTH_KEY: true, SESSION_ENCRYPTION_KEY: true};
 
 /* ---------- state ---------- */
 let origin = location.origin;
+let revealed = false;
+let maskedUrl = "";
+let pendingCode = "";
 
 async function boot() {
   show($("#login"), false); show($("#setup"), false); show($("#app"), false);
   $("#node").textContent = location.host;
-  let info;
+  let info = null;
   try { info = (await api("info")).data; } catch (e) { info = null; }
-  if (!info) { show($("#setup"), true); $("#setup").firstElementChild.textContent = "Cannot reach the server."; return; }
+  if (!info) {
+    show($("#setup"), true);
+    $("#setupNote").textContent = "Cannot reach the server. Reload to try again.";
+    return;
+  }
   if (info.mode === "none") {
     show($("#setup"), true);
     const s = (await api("status")).data;
-    if (s && s.env) { show($("#app"), true); renderEnv(s.env); for (const id of ["#pConnect", "#pTest", "#pSession"]) show($(id), false); }
+    if (s && s.env) renderEnv(s.env, $("#setupBanner"), $("#setupRows"), false);
     return;
   }
   if (!info.authenticated) { showLogin(info.mode); return; }
@@ -325,74 +381,122 @@ async function loadApp() {
   if (r.status === 401) { boot(); return; }
   const s = r.data;
   show($("#app"), true);
-  for (const id of ["#pConnect", "#pTest", "#pSession"]) show($(id), true);
   origin = s.origin || location.origin;
-  $("#mcpUrl").textContent = s.mcp_url_masked;
-  renderEnv(s.env);
+  maskedUrl = s.mcp_url_masked || "";
+  revealed = false; $("#revealBtn").textContent = "[ REVEAL ]";
+  $("#mcpUrl").textContent = maskedUrl;
+  renderEnv(s.env, $("#envBanner"), $("#envRows"), true);
   const st = s.storage || {};
-  const b = $("#storeBanner");
-  const where = st.backend === "blob" ? "Vercel Blob" : "this server's temporary disk (lost on restart)";
-  b.textContent = "Session storage: " + where + (st.encryption ? ", encrypted." : ", NOT encrypted.") +
-    (st.exists === false ? " No session saved yet." : st.exists ? " A session is saved." : "") +
-    (st.error ? " Error: " + st.error : "");
+  const where = st.backend === "blob" ? "Vercel Blob" : "temporary disk (lost on restart)";
+  const summary = where + (st.encryption ? ", encrypted" : ", NOT encrypted") +
+    (st.exists === false ? ", no session saved" : st.exists ? ", session saved" : "") +
+    (st.error ? " (error: " + st.error + ")" : "");
+  $("#kvStorage").textContent = summary;
+  $("#storeBanner").textContent = "Session storage: " + summary + ".";
+  $("#kvMode").textContent = s.mode === "password" ? "username + password" : "MCP key";
+  $("#kvOrigin").textContent = origin;
 }
 
 /* ---------- environment checklist ---------- */
 const TAGS = {ok: "[ OK ]", missing: "[ ⚠ MISSING ]", invalid: "[ ⚠ INVALID ]",
   weak: "[ ⚠ WEAK ]", danger: "[ ⚠ DANGER ]", unset: "[ — UNSET ]"};
 
-function renderEnv(env) {
-  const banner = $("#envBanner"); banner.replaceChildren();
+function renderEnv(env, bannerEl, rowsEl, canReveal) {
+  // Remember which groups are open, so a refresh doesn't fold them back up.
+  const wasOpen = {};
+  rowsEl.querySelectorAll("details.group").forEach((d) => { wasOpen[d.dataset.level] = d.open; });
+  bannerEl.replaceChildren(); rowsEl.replaceChildren();
+
   const bad = env.required_bad;
   const b = el("div", "banner " + (bad ? "bad" : env.warnings ? "warn" : "good"));
   b.textContent = bad
     ? "⚠ " + bad + " OF " + env.required_total + " REQUIRED VARIABLES NEED ATTENTION"
-    : env.warnings ? "✔ ALL REQUIRED VARIABLES PRESENT — " + env.warnings + " WARNING(S) BELOW"
+    : env.warnings ? "✔ REQUIRED VARIABLES PRESENT — " + env.warnings + " WARNING(S)"
     : "✔ ALL REQUIRED VARIABLES PRESENT";
-  banner.appendChild(b);
+  bannerEl.appendChild(b);
 
-  const wrap = $("#envRows"); wrap.replaceChildren();
-  const groups = [["required", "REQUIRED — you must set these"],
-    ["recommended", "RECOMMENDED — strongly advised"],
-    ["optional", "OPTIONAL — skip unless you need them"],
-    ["danger", "DANGEROUS — never set"]];
-  for (const [level, title] of groups) {
+  const groups = [
+    ["required", "REQUIRED", true],
+    ["recommended", "RECOMMENDED", true],
+    ["optional", "OPTIONAL", false],
+    ["danger", "DANGEROUS", false],
+  ];
+  for (const [level, title, openByDefault] of groups) {
     const rows = env.rows.filter((r) => r.level === level);
     if (!rows.length) continue;
-    wrap.appendChild(el("div", "group", "// " + title));
-    for (const r of rows) {
-      const row = el("div", "row");
-      row.appendChild(el("div", "name", r.name));
-      row.appendChild(el("div", "tag " + r.state, TAGS[r.state] || r.state));
-      row.appendChild(el("div", "desc", r.desc));
-      if (r.note) row.appendChild(el("div", "note", "⚠ " + r.note));
-      if (GEN[r.name]) {
-        const g = el("div", "gen");
-        const btn = el("button", "alt", r.state === "ok" ? "[ REGENERATE ]" : "[ GEN ]");
-        const out = el("div", "genout hidden");
-        btn.addEventListener("click", () => {
-          const v = GEN[r.name]();
-          out.replaceChildren(); show(out, true);
-          out.appendChild(el("code", "", v));
-          const cp = el("button", "", "[ COPY ]");
-          cp.addEventListener("click", async () => flash(cp, (await copyText(v)) ? "COPIED" : "COPY FAILED"));
-          out.appendChild(cp);
-          out.appendChild(el("div", "hint", r.name === "SESSION_ENCRYPTION_KEY" && r.state === "ok"
-            ? "Replacing this makes the saved Instagram session unreadable; you will need to add it again."
-            : "Paste into Vercel → Settings → Environment Variables (Production), then redeploy."));
-        });
-        g.appendChild(btn); g.appendChild(out); row.appendChild(g);
-      }
-      wrap.appendChild(row);
-    }
+    const setCount = rows.filter((r) => r.set).length;
+    const summary = level === "danger"
+      ? (setCount ? "⚠ " + setCount + " SET — REMOVE IT" : "none set (correct)")
+      : setCount + " of " + rows.length + " set";
+    const d = el("details", "group");
+    d.dataset.level = level;
+    d.open = (level in wasOpen) ? wasOpen[level] : openByDefault;
+    d.appendChild(el("summary", "", title + "  ·  " + summary));
+    for (const r of rows) d.appendChild(envRow(r, canReveal));
+    rowsEl.appendChild(d);
   }
 }
 
+function envRow(r, canReveal) {
+  const row = el("div", "row");
+  const head = el("div", "rowhead");
+  head.appendChild(el("span", "name", r.name));
+  head.appendChild(el("span", "tag " + r.state, TAGS[r.state] || r.state));
+  row.appendChild(head);
+  row.appendChild(el("div", "desc", r.desc));
+  if (r.note) row.appendChild(el("div", "note", "⚠ " + r.note));
+
+  const acts = el("div", "acts");
+  const valueBox = el("div", "box hidden");
+  if (canReveal && SECRETS[r.name] && r.set) {
+    const showBtn = el("button", "alt", "[ SHOW ]");
+    const copyBtn = el("button", "alt", "[ COPY ]");
+    let open = false;
+    showBtn.addEventListener("click", async () => {
+      if (open) {
+        valueBox.textContent = ""; show(valueBox, false);
+        showBtn.textContent = "[ SHOW ]"; open = false; return;
+      }
+      const res = await api("secret", {name: r.name});
+      if (res.status === 401) { boot(); return; }
+      valueBox.textContent = res.data.value || "(empty)";
+      show(valueBox, true); showBtn.textContent = "[ HIDE ]"; open = true;
+    });
+    copyBtn.addEventListener("click", async () => {
+      const res = await api("secret", {name: r.name});
+      if (res.status === 401) { boot(); return; }
+      flash(copyBtn, (await copyText(res.data.value || "")) ? "COPIED" : "COPY FAILED");
+    });
+    acts.appendChild(showBtn); acts.appendChild(copyBtn);
+  }
+
+  let genOut = null;
+  if (GEN[r.name]) {
+    const btn = el("button", "alt", r.state === "ok" ? "[ REGENERATE ]" : "[ GEN ]");
+    genOut = el("div", "genout hidden");
+    btn.addEventListener("click", () => {
+      const v = GEN[r.name]();
+      genOut.replaceChildren(); show(genOut, true);
+      genOut.appendChild(el("code", "", v));
+      const cp = el("button", "", "[ COPY ]");
+      cp.addEventListener("click", async () => flash(cp, (await copyText(v)) ? "COPIED" : "COPY FAILED"));
+      genOut.appendChild(cp);
+      genOut.appendChild(el("div", "hint", r.name === "SESSION_ENCRYPTION_KEY" && r.state === "ok"
+        ? "Replacing this makes the saved Instagram session unreadable; you will need to add it again."
+        : "Paste into Vercel → Settings → Environment Variables (Production), then redeploy."));
+    });
+    acts.appendChild(btn);
+  }
+  if (acts.childNodes.length) row.appendChild(acts);
+  if (genOut) row.appendChild(genOut);
+  row.appendChild(valueBox);
+  return row;
+}
+
 /* ---------- connect panel ---------- */
-let revealed = false;
 async function getReveal() { const r = await api("reveal", {}); return r.data; }
 $("#revealBtn").addEventListener("click", async () => {
-  if (revealed) { const s = (await api("status")).data; $("#mcpUrl").textContent = s.mcp_url_masked; revealed = false; $("#revealBtn").textContent = "[ REVEAL ]"; return; }
+  if (revealed) { $("#mcpUrl").textContent = maskedUrl; revealed = false; $("#revealBtn").textContent = "[ REVEAL ]"; return; }
   const d = await getReveal(); $("#mcpUrl").textContent = d.mcp_url || ""; revealed = true; $("#revealBtn").textContent = "[ HIDE ]";
 });
 $("#copyUrlBtn").addEventListener("click", async (e) => {
@@ -401,8 +505,7 @@ $("#copyUrlBtn").addEventListener("click", async (e) => {
 });
 document.querySelectorAll("[data-copy]").forEach((btn) => btn.addEventListener("click", async () => {
   const d = await getReveal(); const key = d.key ? encodeURIComponent(d.key) : "";
-  const map = {mcp: origin + "/mcp" + (key ? "?auth=" + key : ""), health: origin + "/healthz",
-    upload: origin + "/upload" + (key ? "?auth=" + key : "")};
+  const map = {health: origin + "/healthz", upload: origin + "/upload" + (key ? "?auth=" + key : "")};
   flash(btn, (await copyText(map[btn.dataset.copy])) ? "COPIED" : "COPY FAILED");
 }));
 
@@ -455,11 +558,10 @@ function setTab(cookie) {
 }
 $("#tabCookie").addEventListener("click", () => setTab(true));
 $("#tabPass").addEventListener("click", () => setTab(false));
-let pendingCode = "";
 function report(r) {
   const box = $("#sessLog"); const d = r.data || {};
-  const cls = d.status === "success" ? "ok" : d.status === "error" ? "bad" : "warn";
   if (r.status === 401) { boot(); return; }
+  const cls = d.status === "success" ? "ok" : d.status === "error" ? "bad" : "warn";
   logLine(box, cls, (d.status || "result").toUpperCase() + ": " + (d.message || JSON.stringify(d)));
   pendingCode = d.status === "needs_2fa" ? "2fa" : d.status === "needs_challenge" ? "challenge" : "";
   show($("#codeBox"), !!pendingCode);

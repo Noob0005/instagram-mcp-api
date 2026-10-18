@@ -116,6 +116,8 @@ EXCLUDE from bundle: `.venv/`, `__pycache__/`, `dist/`, `build/`, `*.egg-info/`,
 11. [x] Dashboard UI redesign: CRT scanlines/flicker/roll bar, green/cyan/red/white palette, 2 columns on desktop, single column on phones (checked with Playwright at 1280 and 390px).
 12. [~] Routing fixed: /healthz and /upload now reach the right handler via ?route= (rewrite replaced the path). /upload page now needs ?auth=. Still open: /api/upload 405 (needs Network-tab details).
 13. [x] Browser-made thumbnails (canvas photos / first video frame for reels) stored as thumb_pathname; preview_upload uses it; set_upload_caption tool. 140 tests.
+14. [x] Dashboard regrouped: collapsible env groups (required/recommended open, optional/danger collapsed), SHOW/COPY only for MCP_AUTH_KEY and SESSION_ENCRYPTION_KEY, configured extension download on the dashboard (admin=extension, keys filled in), public keyless zip link kept. Verified with Playwright at 1280 and 390px.
+15. [ ] USER: redeploy, download the configured extension from the dashboard, load it unpacked in Chrome, log into instagram.com, press SYNC NOW, report errors (Firefox temporary add-on flow too).
 LESSON: anything read from disk at runtime must be inside a .py module (Vercel bundles only .py/imports). Verify deployed paths, not local ones.
 Chat attachments are NOT sent to the server (sandbox can't reach Vercel; base64 too big). Use upload page.
 Other: uploads index read-modify-write race; Termux pydantic fix unconfirmed; photo/GIF comments blocked upstream.
@@ -139,3 +141,4 @@ Other: uploads index read-modify-write race; Termux pydantic fix unconfirmed; ph
 - 2026-10-10: Step 4 done: untracked .pyc files.
 - 2026-10-10: Step 3 done: relogin cooldown treated fresh container (monotonic<300s) as throttled; fixed.
 - 2026-10-10: Dashboard + Blob repair done and pushed; CONTEXT.md rewritten (rules 6/7, §4b, roadmap).
+- 2026-10-19: Dashboard rebuilt (admin_ui/page.py): grouped env checklist with collapsible sections, reveal for the two secrets, configured extension download on the dashboard. 159 tests pass.
