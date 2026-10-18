@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Instagram MCP Sync",
+  "version": "1.0.0",
+  "description": "Sends your Instagram sessionid from this browser to your own Instagram MCP server, encrypted.",
+  "permissions": ["cookies", "storage", "notifications"],
+  "host_permissions": ["https://www.instagram.com/*", "https://*/*"],
+  "background": { "scripts": ["fernet.js", "background.js"] },
+  "action": { "default_title": "Instagram MCP Sync" },
+  "options_ui": { "page": "options.html", "open_in_tab": true },
+  "icons": { "128": "icon.png" },
+  "browser_specific_settings": { "gecko": { "id": "instagram-mcp-sync@local", "strict_min_version": "128.0" } }
+}

@@ -173,6 +173,7 @@ label{display:block; font-size:11px; letter-spacing:.16em; color:var(--cyan); ma
         <button id="copyUrlBtn">[ COPY URL ]</button>
       </div>
       <p class="hint">Paste the full URL into your AI app as a custom MCP connector. Treat it like a password.</p>
+        <p class="hint"><a href="/extension/instagram-mcp-sync.zip" style="color:var(--cyan)">[ DOWNLOAD BROWSER SYNC EXTENSION ]</a> &mdash; keeps your Instagram login fresh from your own browser.</p>
       <div style="margin-top:14px">
         <div class="ep"><span class="m">ANY</span><span>/mcp</span><button class="alt" data-copy="mcp">[ COPY ]</button></div>
         <div class="ep"><span class="m">GET</span><span>/healthz</span><button class="alt" data-copy="health">[ COPY ]</button></div>
