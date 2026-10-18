@@ -45,8 +45,26 @@ async function remindIfDue() {
   });
 }
 
-chrome.runtime.onStartup.addListener(() => { remindIfDue(); });
-chrome.runtime.onInstalled.addListener((d) => {
+// A pre-configured download ships with defaults.json (server URL + keys). Apply it once, so the
+// extension works straight after install. The public zip has no defaults.json: setup is manual.
+async function applyDefaults() {
+  const { config } = await chrome.storage.local.get("config");
+  if (config && config.mcpKey) return;
+  try {
+    const r = await fetch(chrome.runtime.getURL("defaults.json"));
+    if (!r.ok) return;
+    const d = await r.json();
+    if (d.serverUrl && d.mcpKey && d.encKey) {
+      await chrome.storage.local.set({ config: { ...DEFAULTS, ...d } });
+    }
+  } catch (e) {
+    // no defaults file: the user fills in the options page
+  }
+}
+
+chrome.runtime.onStartup.addListener(() => { applyDefaults().then(remindIfDue); });
+chrome.runtime.onInstalled.addListener(async (d) => {
+  await applyDefaults();
   if (d.reason === "install") chrome.runtime.openOptionsPage();
 });
 chrome.notifications.onButtonClicked.addListener((id, index) => {

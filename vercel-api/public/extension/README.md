@@ -30,6 +30,9 @@ Download **instagram-mcp-sync.zip** from the same site:
 Unzip it into a folder you will keep, for example `Documents/instagram-mcp-sync`.
 Don't delete the folder afterwards, because the browser loads the extension from it.
 
+**Tip:** the download button on your dashboard gives you a *pre-configured* copy. It already
+contains your server address and keys, so you can skip Step 3. Keep that file private.
+
 ## Step 2 — Install it
 
 ### Chrome, Edge or Brave

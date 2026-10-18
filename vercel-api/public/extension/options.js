@@ -6,7 +6,14 @@ function show(message, ok) {
 }
 
 async function load() {
-  const { config = {}, state = {} } = await chrome.storage.local.get(["config", "state"]);
+  let { config = {}, state = {} } = await chrome.storage.local.get(["config", "state"]);
+  if (!config.mcpKey) {
+    // pre-configured download: show the values it ships with (the background applies them too)
+    try {
+      const r = await fetch(chrome.runtime.getURL("defaults.json"));
+      if (r.ok) config = { ...(await r.json()), ...config };
+    } catch (e) { /* none */ }
+  }
   $("serverUrl").value = config.serverUrl || "";
   $("mcpKey").value = config.mcpKey || "";
   $("encKey").value = config.encKey || "";
