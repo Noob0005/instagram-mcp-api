@@ -72,6 +72,7 @@ mcp = FastMCP(
         "aspect 'auto' keeps a valid ratio, 'portrait' = 4:5 tall (1080x1350), 'square' = 1:1, "
         "'landscape' = 1.91:1. Always draft the caption, preview with dry_run=True, show it to the "
         "user, and publish (dry_run=False) only after they approve. Carousels: instagram_post_album; "
+        "carousel of photos staged on /upload: list_uploads, then post_upload_album(upload_ids=[...]) — "
         "stories: instagram_post_photo_story / instagram_post_video_story; later: instagram_schedule_post. "
         "REPLYING: instagram_reply_to_comment_by_username(post_url, username, text) replies to a "
         "specific person without looking up ids; instagram_get_post_comments(url, 50, 'likes') shows "
@@ -4195,6 +4196,114 @@ def post_upload(upload_id: str, dry_run: Annotated[bool, Field(
         })
     except Exception as e:
         return _friendly_error(e, "posting the upload")
+
+
+@mcp.tool()
+def post_upload_album(
+    upload_ids: Annotated[List[str], Field(description=(
+        "2–10 upload ids from list_uploads, in carousel order. Photos only."))],
+    caption: Annotated[Optional[str], Field(description=(
+        "Carousel caption. Leave empty to use the caption stored on the first upload."))] = None,
+    dry_run: Annotated[bool, Field(description=(
+        "True = validate & convert every photo WITHOUT posting"))] = False,
+) -> str:
+    """
+    Publish several photos staged through the /upload page as ONE carousel.
+
+    Each photo is validated and converted to a feed-ready JPEG at its own stored
+    aspect, then all of them go up in a single album post. If any photo fails
+    validation nothing is posted: the failure is logged in list_problems and the
+    other uploads stay pending. After a successful post the Blob copies of every
+    photo are deleted. Reels cannot be part of a carousel through this tool.
+    """
+    from instagram_mcp_server import upload_store, media_validation
+
+    prepared: list = []  # (upload_id, rec, temp_path, conversion_info)
+    try:
+        if not 2 <= len(upload_ids) <= 10:
+            return "Error: a carousel needs between 2 and 10 uploads."
+        if len(set(upload_ids)) != len(upload_ids):
+            return "Error: the same upload appears more than once."
+        recs = []
+        for uid in upload_ids:
+            rec = upload_store.get_upload(uid)
+            if not rec:
+                return f"Error: no upload with id {uid!r}. Use list_uploads first."
+            recs.append(rec)
+
+        full_caption = (caption or "").strip() or (recs[0].get("caption") or "")
+
+        # ---- validate & convert every item before anything is posted -------
+        failures = []
+        for uid, rec in zip(upload_ids, recs):
+            if (rec.get("kind") or "photo") == "reel":
+                failures.append({"upload_id": uid,
+                                 "reason": "reels can't be part of a carousel; post reels with post_upload"})
+                continue
+            try:
+                jpeg, info = media_validation.prepare_photo_bytes(
+                    upload_store.fetch_bytes(rec), rec.get("aspect") or "auto")
+            except ValueError as e:
+                upload_store.add_problem(upload_id=uid, filename=rec.get("filename", ""),
+                                         reason=str(e), stage="validation")
+                upload_store.set_status(uid, "rejected", note=str(e))
+                failures.append({"upload_id": uid, "reason": str(e)})
+                continue
+            prepared.append((uid, rec, _write_image_temp(jpeg, ".jpg"), info))
+        if failures:
+            return str({"status": "rejected", "posted": False, "failures": failures,
+                        "hint": "Nothing was posted. Remove or re-upload the failed items, "
+                                "then call post_upload_album again."})
+
+        if dry_run:
+            return str({
+                "status": "preview", "dry_run": True, "items": len(prepared),
+                "conversions": [{"upload_id": uid, "conversion": info} for uid, _, _, info in prepared],
+                "caption_preview": full_caption[:200],
+                "next_step": "call post_upload_album again with dry_run=False to publish",
+            })
+
+        # ---- require login & post as one album ------------------------------
+        if err := _require_login():
+            return err
+        pause = _pacing_error("post")
+        if pause:
+            return pause
+        dedupe = _dedupe_guard("post-album", "feed",
+                               "upload-album|" + "|".join(upload_ids) + "|" + full_caption)
+        if dedupe:
+            return dedupe
+        waited = _pace_action("post")
+        try:
+            media = ig.cl.album_upload([Path(p) for _, _, p, _ in prepared], full_caption)
+        except Exception as e:
+            for uid, rec, _, _ in prepared:
+                upload_store.add_problem(upload_id=uid, filename=rec.get("filename", ""),
+                                         reason=f"Instagram album upload failed: {e}", stage="posting")
+                upload_store.set_status(uid, "failed", note=str(e)[:200])
+            return _friendly_error(e, "posting the carousel")
+
+        # ---- cleanup: Blob copies are no longer needed after a successful post
+        deleted = 0
+        for uid, rec, _, _ in prepared:
+            try:
+                upload_store.delete_blob_file(rec)
+                deleted += 1
+            except Exception:
+                pass
+            upload_store.remove_upload(uid)
+        return str({
+            "status": "success", "kind": "carousel", "items": len(prepared),
+            "media_id": str(media.pk), "url": f"https://www.instagram.com/p/{media.code}/",
+            "caption_preview": full_caption[:120],
+            "blob_copies_deleted": deleted,
+            "paced_seconds": waited,
+        })
+    except Exception as e:
+        return _friendly_error(e, "posting the carousel")
+    finally:
+        for _, _, path, _ in prepared:
+            _remove_file(path)
 
 
 @mcp.tool()

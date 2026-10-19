@@ -102,6 +102,7 @@ Then ask your AI to use these tools:
 | `list_uploads` | Lists pending uploads with caption, size and kind. |
 | `preview_upload` | Returns a small thumbnail so the AI can see the image. |
 | `post_upload` | Validates and converts the file, posts it, then deletes the Blob copy. |
+| `post_upload_album` | Posts 2–10 staged **photos** as one carousel, in the order you list. Nothing is posted if any photo fails. |
 | `delete_upload` | Removes a staged file without posting. |
 | `list_problems` | Shows rejected files and why. |
 
