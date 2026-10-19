@@ -41,11 +41,11 @@ body::after{ /* curved-glass vignette */
   animation:roll 7s linear infinite;
 }
 @keyframes roll{to{transform:translateY(calc(100vh + 240px))}}
-main{max-width:1100px; margin:0 auto; padding:20px 16px 72px; position:relative; z-index:1;
+main{max-width:1000px; margin:0 auto; padding:20px 16px 72px; position:relative; z-index:1;
   animation:flicker 6s steps(1) infinite}
 @keyframes flicker{0%,92%,100%{opacity:1} 93%{opacity:.94} 95%{opacity:.99}}
 header.top{display:flex; flex-wrap:wrap; justify-content:space-between; gap:6px 16px;
-  align-items:baseline; border-bottom:1px solid var(--line); padding-bottom:12px; margin-bottom:18px}
+  align-items:baseline; border-bottom:1px solid var(--line); padding-bottom:12px; margin-bottom:16px}
 .brand{font-size:clamp(14px,3.6vw,18px); letter-spacing:.2em; font-weight:700; color:var(--white);
   text-shadow:0 0 10px rgba(94,240,255,.55)}
 .brand b{color:var(--cyan)}
@@ -54,41 +54,61 @@ header.top{display:flex; flex-wrap:wrap; justify-content:space-between; gap:6px 
   vertical-align:-.15em; margin-left:.2em; animation:blink 1.1s steps(1) infinite;
   box-shadow:0 0 8px var(--cyan)}
 @keyframes blink{50%{opacity:0}}
-.panel{position:relative; border:1px solid var(--line); margin:0 0 18px; padding:20px 16px 16px;
+
+/* navigation: one row of sections, log out on the right */
+.nav{display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:0 0 18px; padding-bottom:12px;
+  border-bottom:1px solid var(--line)}
+.nav a{padding:9px 12px; min-height:40px; display:inline-flex; align-items:center; color:var(--dim);
+  text-decoration:none; letter-spacing:.14em; font-size:12px; border:1px solid transparent}
+.nav a:hover,.nav a:focus-visible{color:var(--cyan); border-color:var(--faint); outline:none}
+.nav a.on{color:#021004; background:var(--cyan); border-color:var(--cyan); text-shadow:none}
+.nav .spacer{flex:1 1 auto}
+
+/* pages: only one is shown at a time */
+.page{animation:fade .25s ease-out}
+@keyframes fade{from{opacity:0} to{opacity:1}}
+
+.panel{position:relative; border:1px solid var(--line); margin:0 0 16px; padding:20px 16px 16px;
   background:linear-gradient(180deg, rgba(12,28,15,.8), rgba(5,11,6,.92));
   box-shadow:0 0 0 1px rgba(0,0,0,.6), 0 0 24px rgba(125,255,158,.05)}
 .panel::before,.panel::after{content:""; position:absolute; width:14px; height:14px;
   border:2px solid var(--cyan); opacity:.8}
 .panel::before{top:-1px; left:-1px; border-right:0; border-bottom:0}
 .panel::after{bottom:-1px; right:-1px; border-left:0; border-top:0}
-.panel > h2{margin:0 0 14px; font-size:12px; letter-spacing:.22em; color:var(--cyan); font-weight:700;
+.panel > h2{margin:0 0 12px; font-size:12px; letter-spacing:.22em; color:var(--cyan); font-weight:700;
   text-shadow:0 0 8px rgba(94,240,255,.45)}
-.panel > h2 em,details > summary em{color:var(--dim); font-style:normal; margin-right:.6em}
+.panel > h2 em{color:var(--dim); font-style:normal; margin-right:.6em}
 .hint{color:var(--dim); font-size:12px; margin:6px 0 0}
 .hint a,.hint a:visited{color:var(--cyan)}
 .banner{padding:10px 12px; border:1px solid; margin:0 0 14px; font-size:13px; letter-spacing:.03em}
 .banner.good{border-color:var(--faint); color:var(--fg)}
 .banner.bad{border-color:var(--red); color:var(--red); background:rgba(255,92,92,.08)}
 .banner.warn{border-color:var(--cyan); color:var(--cyan); background:rgba(94,240,255,.06)}
-.kv{display:grid; grid-template-columns:max-content minmax(0,1fr); gap:8px 16px; margin:14px 0 0; font-size:13px}
+.kv{display:grid; grid-template-columns:max-content minmax(0,1fr); gap:8px 16px; margin:12px 0 0; font-size:13px}
 .kv dt{color:var(--cyan); letter-spacing:.14em; font-size:11px; padding-top:2px}
 .kv dd{margin:0; color:var(--white); overflow-wrap:anywhere}
-.sub{font-size:12px; letter-spacing:.2em; color:var(--white); margin:22px 0 6px; font-weight:700}
 .btns{margin-top:12px}
 
-/* collapsible sections */
+/* home: overview plus one card per section */
+.cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px}
+.card{display:flex; flex-direction:column; gap:6px; padding:16px; min-height:132px; text-decoration:none;
+  color:var(--fg); border:1px solid var(--line); background:rgba(5,11,6,.85)}
+.card:hover,.card:focus-visible{border-color:var(--cyan); outline:none;
+  box-shadow:0 0 18px rgba(94,240,255,.12)}
+.card-t{color:var(--cyan); letter-spacing:.2em; font-weight:700; font-size:12px}
+.card-d{color:var(--dim); font-size:12px}
+.card-s{margin-top:auto; color:var(--white); font-size:13px; padding-top:10px; border-top:1px dashed var(--faint)}
+
+/* environment groups (collapsible) */
 details > summary{cursor:pointer; list-style:none; color:var(--cyan); letter-spacing:.22em;
   font-size:12px; font-weight:700; text-shadow:0 0 8px rgba(94,240,255,.45); padding:2px 0 4px}
 details > summary::-webkit-details-marker{display:none}
 details > summary::before{content:"\25B8  "; color:var(--dim)}
 details[open] > summary::before{content:"\25BE  "}
-details[open] > summary{margin-bottom:14px}
 details.group{border-top:1px dashed var(--faint); margin-top:14px; padding-top:4px}
 details.group > summary{color:var(--white); letter-spacing:.14em; font-size:11px; font-weight:400;
   text-shadow:none; padding:8px 0}
 details.group[open] > summary{margin-bottom:4px}
-
-/* environment rows */
 .row{display:block; padding:12px 0; border-top:1px dashed var(--faint)}
 .rowhead{display:flex; justify-content:space-between; align-items:baseline; gap:4px 12px; flex-wrap:wrap}
 .row .name{overflow-wrap:anywhere; color:var(--white)}
@@ -133,25 +153,22 @@ label{display:block; font-size:11px; letter-spacing:.16em; color:var(--cyan); ma
 .center{max-width:460px; width:100%; margin:6vh auto 0}
 .err{color:var(--red); min-height:1.4em; margin:10px 0 0; font-size:13px}
 .hidden{display:none !important}
-.foot{justify-content:space-between; margin-top:6px}
 
-/* Two columns on wide screens; one column on phones */
-@media (min-width:980px){
-  #app{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:0 18px; align-items:start}
-  #app > .panel.wide, #app > .foot{grid-column:1 / -1}
-}
 @media (max-width:620px){
   main{padding:14px 12px 56px}
   .panel{padding:18px 12px 14px}
+  .nav a{padding:8px 10px; font-size:11px}
+  .nav .spacer{display:none}
+  .nav button{width:100%}
   .line > button, .line > input, .line > .btn{width:100%}
   .genout > button{width:100%}
   .acts > button{flex:1 1 140px}
-  .foot{flex-direction:column; align-items:stretch; gap:10px}
   .row .box{font-size:12px}
   .log{max-height:45vh}
+  .card{min-height:0}
 }
 @media (pointer:coarse){ button{min-height:46px} }
-@media (prefers-reduced-motion:reduce){ .cursor,.tag.danger,main,.roll{animation:none} }
+@media (prefers-reduced-motion:reduce){ .cursor,.tag.danger,main,.roll,.page{animation:none} }
 </style>
 </head>
 <body>
@@ -159,7 +176,7 @@ label{display:block; font-size:11px; letter-spacing:.16em; color:var(--cyan); ma
 <main>
   <header class="top">
     <div class="brand">&#9612;ARCHIVE&nbsp;TERMINAL <b>//</b> INSTAGRAM-MCP<span class="cursor"></span></div>
-    <div class="sys" id="sys">NODE: <span id="node">&mdash;</span></div>
+    <div class="sys">NODE: <span id="node">&mdash;</span></div>
   </header>
 
   <!-- LOGIN -->
@@ -186,62 +203,89 @@ label{display:block; font-size:11px; letter-spacing:.16em; color:var(--cyan); ma
     </section>
   </section>
 
-  <!-- DASHBOARD -->
+  <!-- DASHBOARD: navigation plus one page per section -->
   <div id="app" class="hidden">
-    <section class="panel" id="pStatus">
-      <h2><em>01</em>STATUS</h2>
-      <div id="envBanner"></div>
-      <dl class="kv">
-        <dt>AUTH</dt><dd id="kvMode">&mdash;</dd>
-        <dt>STORAGE</dt><dd id="kvStorage">&mdash;</dd>
-        <dt>SERVER</dt><dd id="kvOrigin">&mdash;</dd>
-      </dl>
-    </section>
+    <nav class="nav" aria-label="Dashboard sections">
+      <a href="#home" data-page="home">HOME</a>
+      <a href="#connect" data-page="connect">CONNECT</a>
+      <a href="#env" data-page="env">ENVIRONMENT</a>
+      <a href="#instagram" data-page="instagram">INSTAGRAM</a>
+      <a href="#tests" data-page="tests">TESTS</a>
+      <span class="spacer"></span>
+      <button class="alt" id="logoutBtn">[ LOG OUT ]</button>
+    </nav>
 
-    <section class="panel" id="pConnect">
-      <h2><em>02</em>CONNECT</h2>
-      <p class="hint">Your MCP URL contains the key. Treat it like a password.</p>
-      <div class="line" style="margin-top:12px">
-        <div class="box" id="mcpUrl">&hellip;</div>
-        <button id="revealBtn" class="alt">[ REVEAL ]</button>
+    <section class="page" data-page="home">
+      <div class="panel">
+        <h2><em>//</em>OVERVIEW</h2>
+        <div id="envBanner"></div>
+        <dl class="kv">
+          <dt>AUTH</dt><dd id="kvMode">&mdash;</dd>
+          <dt>STORAGE</dt><dd id="kvStorage">&mdash;</dd>
+          <dt>SERVER</dt><dd id="kvOrigin">&mdash;</dd>
+        </dl>
       </div>
-      <div class="line btns">
-        <button id="copyUrlBtn">[ COPY MCP URL ]</button>
-        <button class="alt" data-copy="health">[ COPY HEALTH URL ]</button>
-        <button class="alt" data-copy="upload">[ COPY UPLOAD PAGE ]</button>
+      <div class="cards">
+        <a class="card" href="#connect">
+          <span class="card-t">CONNECT</span>
+          <span class="card-d">MCP URL, upload page and the browser sync extension</span>
+          <span class="card-s">Copy the URL or download the extension</span>
+        </a>
+        <a class="card" href="#env">
+          <span class="card-t">ENVIRONMENT</span>
+          <span class="card-d">Variables, keys and generators</span>
+          <span class="card-s" id="homeEnv">&mdash;</span>
+        </a>
+        <a class="card" href="#instagram">
+          <span class="card-t">INSTAGRAM</span>
+          <span class="card-d">Log in with your session cookie</span>
+          <span class="card-s" id="homeIg">&mdash;</span>
+        </a>
+        <a class="card" href="#tests">
+          <span class="card-t">TESTS</span>
+          <span class="card-d">Check that each endpoint answers</span>
+          <span class="card-s">Runs against this server</span>
+        </a>
       </div>
+    </section>
 
-      <h3 class="sub">BROWSER SYNC EXTENSION</h3>
-      <p class="hint">Chrome or Firefox. It sends your Instagram login to this server, encrypted, so the session stays fresh.</p>
-      <div class="line btns">
-        <a class="btn" href="/api/main?admin=extension" download>[ DOWNLOAD CONFIGURED EXTENSION ]</a>
+    <section class="page" data-page="connect">
+      <div class="panel">
+        <h2><em>//</em>MCP URL</h2>
+        <p class="hint">Paste this into your AI app as a custom MCP connector. It contains the key, so treat it like a password.</p>
+        <div class="line" style="margin-top:12px">
+          <div class="box" id="mcpUrl">&hellip;</div>
+          <button id="revealBtn" class="alt">[ REVEAL ]</button>
+        </div>
+        <div class="line btns">
+          <button id="copyUrlBtn">[ COPY MCP URL ]</button>
+          <button class="alt" data-copy="health">[ COPY HEALTH URL ]</button>
+          <button class="alt" data-copy="upload">[ COPY UPLOAD PAGE ]</button>
+        </div>
       </div>
-      <p class="hint">Ready to use: this server's address and keys are already filled in. Don't share the file.</p>
-      <p class="hint">Without keys: <a href="/extension/instagram-mcp-sync.zip">instagram-mcp-sync.zip</a>
-        &middot; <a href="/extension/README.md">setup guide</a> (you enter the address and keys yourself).</p>
+      <div class="panel">
+        <h2><em>//</em>BROWSER SYNC EXTENSION</h2>
+        <p class="hint">Chrome or Firefox. It sends your Instagram login to this server, encrypted, so the session stays fresh.</p>
+        <div class="line btns">
+          <a class="btn" href="/api/main?admin=extension" download>[ DOWNLOAD CONFIGURED EXTENSION ]</a>
+        </div>
+        <p class="hint">Ready to use: this server's address and keys are already filled in. Don't share the file.</p>
+        <p class="hint">Without keys: <a href="/extension/instagram-mcp-sync.zip">instagram-mcp-sync.zip</a>
+          &middot; <a href="/extension/README.md">setup guide</a></p>
+      </div>
     </section>
 
-    <section class="panel wide" id="pEnv">
-      <h2><em>03</em>ENVIRONMENT</h2>
-      <p class="hint">Values stay hidden. Press SHOW to reveal MCP_AUTH_KEY or SESSION_ENCRYPTION_KEY. Optional and
-        dangerous groups are collapsed. After changing a variable in Vercel, redeploy.</p>
-      <div id="envRows"></div>
+    <section class="page" data-page="env">
+      <div class="panel">
+        <h2><em>//</em>ENVIRONMENT VARIABLES</h2>
+        <p class="hint">Values stay hidden. SHOW reveals MCP_AUTH_KEY or SESSION_ENCRYPTION_KEY only. After changing a variable in Vercel, redeploy.</p>
+        <div id="envRows"></div>
+      </div>
     </section>
 
-    <section class="panel" id="pTest">
-      <details>
-        <summary><em>04</em>ENDPOINT TEST</summary>
-        <label for="tk">OPTIONAL: TYPE A DIFFERENT KEY TO TEST IT</label>
-        <div class="line"><input id="tk" type="password" autocomplete="off" style="flex:1 1 220px">
-          <button id="testBtn">[ RUN TESTS ]</button></div>
-        <div class="log" id="testLog" aria-live="polite"></div>
-        <p class="hint">Leave the box empty to test with the MCP key from your dashboard session. A wrong key should be rejected; the right key should pass.</p>
-      </details>
-    </section>
-
-    <section class="panel" id="pSession">
-      <details open>
-        <summary><em>05</em>INSTAGRAM SESSION</summary>
+    <section class="page" data-page="instagram">
+      <div class="panel">
+        <h2><em>//</em>INSTAGRAM SESSION</h2>
         <div class="banner warn" id="storeBanner"></div>
         <div class="tabs">
           <button id="tabCookie" class="on">COOKIE</button>
@@ -265,13 +309,19 @@ label{display:block; font-size:11px; letter-spacing:.16em; color:var(--cyan); ma
         </div>
         <div class="line btns"><button class="alt" id="checkSession">[ CHECK STATUS ]</button></div>
         <div class="log" id="sessLog" aria-live="polite"></div>
-      </details>
+      </div>
     </section>
 
-    <div class="line foot">
-      <span class="hint">SESSION OPEN &middot; 8 HOURS</span>
-      <button class="alt" id="logoutBtn">[ LOG OUT ]</button>
-    </div>
+    <section class="page" data-page="tests">
+      <div class="panel">
+        <h2><em>//</em>ENDPOINT TESTS</h2>
+        <label for="tk">OPTIONAL: TEST WITH A DIFFERENT KEY</label>
+        <div class="line"><input id="tk" type="password" autocomplete="off" style="flex:1 1 220px">
+          <button id="testBtn">[ RUN TESTS ]</button></div>
+        <div class="log" id="testLog" aria-live="polite"></div>
+        <p class="hint">Leave the box empty to test with the MCP key from this session. A wrong key should be rejected; the right key should pass.</p>
+      </div>
+    </section>
   </div>
 </main>
 
@@ -335,6 +385,16 @@ let revealed = false;
 let maskedUrl = "";
 let pendingCode = "";
 
+/* ---------- navigation between pages (hash routing) ---------- */
+const PAGES = ["home", "connect", "env", "instagram", "tests"];
+function route() {
+  const name = (location.hash || "#home").slice(1);
+  const page = PAGES.includes(name) ? name : "home";
+  document.querySelectorAll(".page").forEach((s) => show(s, s.dataset.page === page));
+  document.querySelectorAll(".nav a").forEach((a) => a.classList.toggle("on", a.dataset.page === page));
+}
+window.addEventListener("hashchange", () => { route(); window.scrollTo(0, 0); });
+
 async function boot() {
   show($("#login"), false); show($("#setup"), false); show($("#app"), false);
   $("#node").textContent = location.host;
@@ -395,6 +455,12 @@ async function loadApp() {
   $("#storeBanner").textContent = "Session storage: " + summary + ".";
   $("#kvMode").textContent = s.mode === "password" ? "username + password" : "MCP key";
   $("#kvOrigin").textContent = origin;
+  // Short summaries on the home cards.
+  $("#homeEnv").textContent = s.env.required_bad
+    ? s.env.required_bad + " required variable(s) need attention"
+    : "all required variables are set";
+  $("#homeIg").textContent = st.exists ? "session saved" : "no session saved yet";
+  route();
 }
 
 /* ---------- environment checklist ---------- */
@@ -493,7 +559,7 @@ function envRow(r, canReveal) {
   return row;
 }
 
-/* ---------- connect panel ---------- */
+/* ---------- connect page ---------- */
 async function getReveal() { const r = await api("reveal", {}); return r.data; }
 $("#revealBtn").addEventListener("click", async () => {
   if (revealed) { $("#mcpUrl").textContent = maskedUrl; revealed = false; $("#revealBtn").textContent = "[ REVEAL ]"; return; }
@@ -577,7 +643,7 @@ $("#savePass").addEventListener("click", (e) => sessionCall({action: "password",
 $("#sendCode").addEventListener("click", (e) => sessionCall({action: pendingCode || "2fa", code: $("#code").value}, e.target));
 $("#checkSession").addEventListener("click", (e) => sessionCall({action: "status"}, e.target));
 
-$("#logoutBtn").addEventListener("click", async () => { await api("logout", {}); boot(); });
+$("#logoutBtn").addEventListener("click", async () => { await api("logout", {}); location.hash = ""; boot(); });
 boot();
 </script>
 </body>
