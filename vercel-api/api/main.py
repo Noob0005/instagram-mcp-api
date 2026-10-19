@@ -49,6 +49,10 @@ async def app(scope, receive, send):
         qs = scope.get("query_string", b"").decode("utf-8", "ignore")
         if path.rstrip("/") == "/api/main":
             route = (parse_qs(qs).get("route") or [""])[0]
+            if route == "session-sync":
+                from admin_ui import sync_api
+                await sync_api.handle(scope, receive, send)
+                return
             if route in _ROUTE_PATHS:
                 scope = dict(scope)
                 scope["path"] = _ROUTE_PATHS[route]

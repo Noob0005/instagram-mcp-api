@@ -116,6 +116,8 @@ EXCLUDE from bundle: `.venv/`, `__pycache__/`, `dist/`, `build/`, `*.egg-info/`,
 11. [x] Dashboard UI redesign: CRT scanlines/flicker/roll bar, green/cyan/red/white palette, 2 columns on desktop, single column on phones (checked with Playwright at 1280 and 390px).
 12. [~] Routing fixed: /healthz and /upload now reach the right handler via ?route= (rewrite replaced the path). /upload page now needs ?auth=. Still open: /api/upload 405 (needs Network-tab details).
 13. [x] Browser-made thumbnails (canvas photos / first video frame for reels) stored as thumb_pathname; preview_upload uses it; set_upload_caption tool. 140 tests.
+14. [x] Dashboard regrouped: collapsible env groups (required/recommended open, optional/danger collapsed), SHOW/COPY only for MCP_AUTH_KEY and SESSION_ENCRYPTION_KEY, configured extension download on the dashboard (admin=extension, keys filled in), public keyless zip link kept. Verified with Playwright at 1280 and 390px.
+15. [ ] USER: redeploy, download the configured extension from the dashboard, load it unpacked in Chrome, log into instagram.com, press SYNC NOW, report errors (Firefox temporary add-on flow too).
 LESSON: anything read from disk at runtime must be inside a .py module (Vercel bundles only .py/imports). Verify deployed paths, not local ones.
 Chat attachments are NOT sent to the server (sandbox can't reach Vercel; base64 too big). Use upload page.
 Other: uploads index read-modify-write race; Termux pydantic fix unconfirmed; photo/GIF comments blocked upstream.
@@ -126,6 +128,10 @@ Other: uploads index read-modify-write race; Termux pydantic fix unconfirmed; ph
 - Local server: `python -m instagram_mcp_server` | `python scripts/serve.py --host 0.0.0.0 --port 8080`
 
 ## Progress Log (fold into §5/§6 when done — keep SHORT)
+- 2026-10-19: Dashboard routes: admin-only pre-configured extension zip (admin=extension) and secret reveal for MCP_AUTH_KEY/SESSION_ENCRYPTION_KEY only (admin=secret).
+- 2026-10-19: Extension: defaults.json applied on install (pre-configured zip); build_extension.py regenerates public zip + admin_ui/extension_files.py. Run it after editing public/extension.
+- 2026-10-19: Browser extension (Chrome + Firefox) in vercel-api/public/extension with zip + README; dashboard link; cross-language Fernet test. Sync prompt at most once per interval.
+- 2026-10-19: Browser extension plan step 1 done: POST /api/session-sync (Fernet payload, MCP key auth, reuses dashboard cookie login). 148 tests.
 - 2026-10-10: Upload page was read from public/ at runtime, which Vercel does not bundle (upload_page_missing). Now embedded in admin_ui/upload_page.py; public/upload.html removed.
 - 2026-10-10: Step 11 done: dashboard redesign (140 tests pass).
 - 2026-10-10: Step 13 done: thumbnails + set_upload_caption (140 tests). Steps 10, 12 done.
@@ -135,3 +141,4 @@ Other: uploads index read-modify-write race; Termux pydantic fix unconfirmed; ph
 - 2026-10-10: Step 4 done: untracked .pyc files.
 - 2026-10-10: Step 3 done: relogin cooldown treated fresh container (monotonic<300s) as throttled; fixed.
 - 2026-10-10: Dashboard + Blob repair done and pushed; CONTEXT.md rewritten (rules 6/7, §4b, roadmap).
+- 2026-10-19: Dashboard rebuilt (admin_ui/page.py): grouped env checklist with collapsible sections, reveal for the two secrets, configured extension download on the dashboard. 159 tests pass.

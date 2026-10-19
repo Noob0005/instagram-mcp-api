@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Instagram MCP Sync</title>
+<link rel="stylesheet" href="options.css">
+</head>
+<body>
+<main>
+  <h1>INSTAGRAM MCP // SYNC</h1>
+  <p class="hint">These values are stored in this browser profile only. Anyone with access to this browser can read them.</p>
+  <label>Server URL
+    <input id="serverUrl" placeholder="https://instagram-mcp-api.vercel.app" autocomplete="off"></label>
+  <label>MCP key (MCP_AUTH_KEY)
+    <input id="mcpKey" type="password" autocomplete="off"></label>
+  <label>Encryption key (SESSION_ENCRYPTION_KEY, same as Vercel)
+    <input id="encKey" type="password" autocomplete="off"></label>
+  <label>Instagram username (optional)
+    <input id="username" autocomplete="off"></label>
+  <label>Ask to sync at most once every
+    <select id="intervalMin">
+      <option value="30">30 minutes</option>
+      <option value="60">1 hour</option>
+      <option value="120">2 hours</option>
+    </select></label>
+  <div class="row">
+    <button id="save">SAVE</button>
+    <button id="test" class="alt">TEST SERVER</button>
+    <button id="sync" class="alt">SYNC NOW</button>
+  </div>
+  <pre id="out" aria-live="polite"></pre>
+  <p class="hint">Last sync: <span id="last">never</span></p>
+</main>
+<script src="options.js"></script>
+</body>
+</html>

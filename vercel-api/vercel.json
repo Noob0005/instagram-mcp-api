@@ -24,6 +24,10 @@
     {
       "source": "/healthz",
       "destination": "/api/main?route=healthz"
+    },
+    {
+      "source": "/api/session-sync",
+      "destination": "/api/main?route=session-sync"
     }
   ],
   "functions": {
