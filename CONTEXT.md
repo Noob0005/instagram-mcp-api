@@ -120,6 +120,9 @@ EXCLUDE from bundle: `.venv/`, `__pycache__/`, `dist/`, `build/`, `*.egg-info/`,
 15. [ ] USER: redeploy, download the configured extension from the dashboard, load it unpacked in Chrome, log into instagram.com, press SYNC NOW, report errors (Firefox temporary add-on flow too).
 16. [x] Carousel from /upload photos: post_upload_album(upload_ids, caption, dry_run). Photos only; every photo is validated before anything posts; Blob copies deleted on success. 168 tests pass.
 17. [x] Dashboard redesign: Home overview + section cards; Connect, Environment, Instagram and Tests each on their own page (hash routing). Checked with Playwright at 1280 and 390px.
+18. [x] Extension autosync: loading an instagram.com tab syncs the sessionid in the background, at most once per interval (failed attempts retry after 10 min). Interval prompt and notification permission removed. 178 tests pass.
+19. [ ] USER: reinstall the extension (or reload it) and open instagram.com; check the options page shows a last sync time.
+20. [ ] Carousel with per-slide AI images: confirm the image step and where the images are generated.
 LESSON: anything read from disk at runtime must be inside a .py module (Vercel bundles only .py/imports). Verify deployed paths, not local ones.
 Chat attachments are NOT sent to the server (sandbox can't reach Vercel; base64 too big). Use upload page.
 Other: uploads index read-modify-write race; Termux pydantic fix unconfirmed; photo/GIF comments blocked upstream.
@@ -146,3 +149,4 @@ Other: uploads index read-modify-write race; Termux pydantic fix unconfirmed; ph
 - 2026-10-19: Dashboard rebuilt (admin_ui/page.py): grouped env checklist with collapsible sections, reveal for the two secrets, configured extension download on the dashboard. 159 tests pass.
 - 2026-10-19: Carousel of staged photos via post_upload_album (mcp_server.py, _vendor synced). 168 tests pass.
 - 2026-10-19: Dashboard split into pages (Home, Connect, Environment, Instagram, Tests). 168 tests pass.
+- 2026-10-20: Extension autosync on instagram.com (tests/test_extension_autosync.py runs the real background.js in Node). 178 tests pass.

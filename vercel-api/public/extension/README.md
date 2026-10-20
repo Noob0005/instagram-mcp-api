@@ -5,8 +5,9 @@ This extension sends your Instagram login cookie (`sessionid`) from **your own b
 rotates or expires the cookie. The cookie is encrypted in the browser first, using the same
 key as the server's `SESSION_ENCRYPTION_KEY`, and the request also needs your MCP key.
 
-It works in Chrome and Firefox (desktop). The sync prompt appears when you open the browser,
-and at most once every 30 / 60 / 120 minutes (you choose). If you synced recently, it stays quiet.
+It works in Chrome and Firefox (desktop). Whenever you open **instagram.com** in this browser, it
+syncs your login in the background, at most once every 30 / 60 / 120 minutes (you choose).
+If you synced recently, it does nothing.
 
 ## What you need before you start
 
@@ -58,18 +59,20 @@ project doesn't do yet.
    (right-click its icon → Options, or `chrome://extensions` → Details → Extension options).
 2. Fill in the **Server URL**, **MCP key** and **Encryption key**. Add your Instagram username
    if you like; it's only a label.
-3. Choose how often the sync prompt may appear (30 minutes, 1 hour or 2 hours).
+3. Choose how often an automatic sync may run (30 minutes, 1 hour or 2 hours).
 4. Press **SAVE**, then **TEST SERVER**. You should see "Server reachable".
 5. Log in to **instagram.com** in this same browser. Solve any captcha there.
 6. Press **SYNC NOW**. You should see "Synced as @yourname".
 
 ## Day to day
 
-- When you open the browser and the last sync is older than your chosen interval, a
-  notification asks **Sync Instagram session?**. Click **Sync now**, or click the notification
-  to open the options page.
-- If you pick **Later**, or ignore it, the prompt won't come back until the interval has passed.
-- The badge shows `!` when a sync is due and `X` when no Instagram login was found in this browser.
+- Open instagram.com (or reload it). If the last successful sync is older than your interval,
+  the extension sends your login to your server. You don't need to click anything.
+- The options page shows the last sync time. If the last attempt failed, it shows why.
+- The badge shows `!` when the last automatic or manual attempt failed. After a failure the
+  extension waits 10 minutes before trying again. Press **SYNC NOW** to try straight away.
+- If you're logged out of instagram.com in this browser, the attempt fails with "No Instagram
+  sessionid". Log in on instagram.com and the next visit syncs.
 - If you change your Instagram password or log out of Instagram, sync fails. Log in again on
   instagram.com, then press SYNC NOW.
 

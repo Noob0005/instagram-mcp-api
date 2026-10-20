@@ -19,7 +19,9 @@ async function load() {
   $("encKey").value = config.encKey || "";
   $("username").value = config.username || "";
   $("intervalMin").value = String(config.intervalMin || 60);
-  $("last").textContent = state.lastSyncAt ? new Date(state.lastSyncAt).toLocaleString() : "never";
+  const last = state.lastResult;
+  $("last").textContent = (state.lastSyncAt ? new Date(state.lastSyncAt).toLocaleString() : "never") +
+    (last && !last.ok ? "  (last attempt failed: " + last.message + ")" : "");
 }
 
 $("save").addEventListener("click", async () => {
