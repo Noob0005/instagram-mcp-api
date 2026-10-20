@@ -12,7 +12,7 @@ import zipfile
 
 HERE = pathlib.Path(__file__).resolve().parent
 SRC = HERE / "public" / "extension"
-FILES = ["manifest.json", "manifest-firefox.json", "background.js", "fernet.js",
+FILES = ["manifest.json", "manifest-firefox.json", "background.js", "content.js", "fernet.js",
          "options.html", "options.js", "options.css", "icon.png", "README.md"]
 
 

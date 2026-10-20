@@ -6,6 +6,9 @@
   "permissions": ["cookies", "storage"],
   "host_permissions": ["https://www.instagram.com/*", "https://gemini.google.com/*", "https://*/*"],
   "background": { "scripts": ["fernet.js", "background.js"] },
+  "content_scripts": [
+    { "matches": ["https://www.instagram.com/*", "https://gemini.google.com/*"], "js": ["content.js"], "run_at": "document_idle" }
+  ],
   "action": { "default_title": "Session Sync" },
   "options_ui": { "page": "options.html", "open_in_tab": true },
   "icons": { "128": "icon.png" },

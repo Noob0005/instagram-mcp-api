@@ -82,6 +82,10 @@ project doesn't do yet.
 
 ## Day to day
 
+- On instagram.com and gemini.google.com a round **S** button sits at the bottom right. Click it to
+  see both sites: whether each is logged in here, when it last synced, and any failure. **SYNC
+  INSTAGRAM** and **SYNC GEMINI** run that sync now. **SETTINGS** opens the options page. The button
+  is added by the extension itself; the site's own pages are not changed.
 - Open instagram.com or gemini.google.com (or reload it). If that site's last successful sync is
   older than your interval, the extension sends its login to your server. You don't need to click
   anything.

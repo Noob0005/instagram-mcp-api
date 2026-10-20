@@ -231,5 +231,6 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   if (msg && msg.type === "syncSite") { runSync(msg.site === "gemini" ? "gemini" : "instagram").then(reply); return true; }
   if (msg && msg.type === "ping") { pingServer().then(reply); return true; }
   if (msg && msg.type === "status") { siteStatus().then(reply); return true; }
+  if (msg && msg.type === "openOptions") { chrome.runtime.openOptionsPage(); return false; }
   return false;
 });
