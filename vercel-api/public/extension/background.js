@@ -3,8 +3,11 @@
 if (typeof importScripts === "function") importScripts("fernet.js");
 
 const IG_URL = "https://www.instagram.com/";
-const PROMPT_ID = "sync-prompt";
+const IG_PAGE = /^https:\/\/(www\.)?instagram\.com\//;
 const DEFAULTS = { serverUrl: "", mcpKey: "", encKey: "", username: "", intervalMin: 60 };
+const RETRY_MIN = 10; // after a failed automatic attempt, wait this long before trying again
+
+let syncInFlight = false; // one sync at a time, even when several instagram.com tabs load together
 
 async function getConfig() {
   const { config = {} } = await chrome.storage.local.get("config");
@@ -20,29 +23,6 @@ async function setState(patch) {
 }
 function configured(c) {
   return !!(c.serverUrl && c.mcpKey && c.encKey);
-}
-
-// Ask at most once per interval, and only when the last sync is older than the interval.
-// Opening the browser many times in a row therefore does not prompt again and again.
-async function remindIfDue() {
-  const cfg = await getConfig();
-  if (!configured(cfg)) return;
-  const st = await getState();
-  const now = Date.now();
-  const gap = cfg.intervalMin * 60 * 1000;
-  const syncedRecently = st.lastSyncAt && now - st.lastSyncAt < gap;
-  const promptedRecently = st.lastPromptAt && now - st.lastPromptAt < gap;
-  if (syncedRecently || promptedRecently) return;
-  await setState({ lastPromptAt: now });
-  chrome.action.setBadgeText({ text: "!" });
-  chrome.action.setBadgeBackgroundColor({ color: "#5ef0ff" });
-  chrome.notifications.create(PROMPT_ID, {
-    type: "basic",
-    iconUrl: "icon.png",
-    title: "Sync Instagram session?",
-    message: "Send your Instagram login from this browser to your MCP server.",
-    buttons: [{ title: "Sync now" }, { title: "Later" }],
-  });
 }
 
 // A pre-configured download ships with defaults.json (server URL + keys). Apply it once, so the
@@ -62,19 +42,45 @@ async function applyDefaults() {
   }
 }
 
-chrome.runtime.onStartup.addListener(() => { applyDefaults().then(remindIfDue); });
+// Automatic sync: whenever an instagram.com page finishes loading, sync the login in the background.
+// At most one successful sync per interval; after a failure, retry no sooner than RETRY_MIN.
+async function autoSyncIfDue() {
+  if (syncInFlight) return;
+  const cfg = await getConfig();
+  if (!configured(cfg)) return;
+  const st = await getState();
+  const now = Date.now();
+  const gap = cfg.intervalMin * 60 * 1000;
+  if (st.lastSyncAt && now - st.lastSyncAt < gap) return;
+  if (st.lastTryAt && now - st.lastTryAt < RETRY_MIN * 60 * 1000) return;
+  syncInFlight = true;
+  try {
+    await runSync();
+  } finally {
+    syncInFlight = false;
+  }
+}
+
+chrome.tabs.onUpdated.addListener((_tabId, info, tab) => {
+  if (info.status !== "complete" || !tab || !tab.url) return;
+  if (!IG_PAGE.test(tab.url)) return;
+  autoSyncIfDue();
+});
+
+chrome.runtime.onStartup.addListener(() => { applyDefaults(); });
 chrome.runtime.onInstalled.addListener(async (d) => {
   await applyDefaults();
   if (d.reason === "install") chrome.runtime.openOptionsPage();
 });
-chrome.notifications.onButtonClicked.addListener((id, index) => {
-  if (id !== PROMPT_ID) return;
-  chrome.notifications.clear(id);
-  if (index === 0) syncNow();
-});
-chrome.notifications.onClicked.addListener((id) => {
-  if (id === PROMPT_ID) chrome.runtime.openOptionsPage();
-});
+
+// Shared by the button and the automatic sync: runs the sync and records the outcome.
+async function runSync() {
+  await setState({ lastTryAt: Date.now() });
+  const r = await syncNow();
+  await setState({ lastResult: { at: Date.now(), ok: r.ok, message: r.message } });
+  chrome.action.setBadgeText({ text: r.ok ? "" : "!" });
+  return r;
+}
 
 async function syncNow() {
   const cfg = await getConfig();
@@ -88,7 +94,6 @@ async function syncNow() {
     cookie = null;
   }
   if (!cookie || !cookie.value) {
-    chrome.action.setBadgeText({ text: "X" });
     return { ok: false, message: "No Instagram sessionid in this browser. Log in at instagram.com first." };
   }
   let token;
@@ -112,7 +117,6 @@ async function syncNow() {
   }
   if (res.ok && data.status === "success") {
     await setState({ lastSyncAt: Date.now() });
-    chrome.action.setBadgeText({ text: "" });
     return { ok: true, message: "Synced" + (data.username ? " as @" + data.username : "") + "." };
   }
   if (res.status === 401) return { ok: false, message: "The server rejected the MCP key." };
@@ -134,7 +138,7 @@ async function pingServer() {
 }
 
 chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
-  if (msg && msg.type === "syncNow") { syncNow().then(reply); return true; }
+  if (msg && msg.type === "syncNow") { runSync().then(reply); return true; }
   if (msg && msg.type === "ping") { pingServer().then(reply); return true; }
   return false;
 });
