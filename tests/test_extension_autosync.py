@@ -29,10 +29,13 @@ function world(o = {}) {
   const store = {};
   if (o.configured !== false) {
     store.config = {serverUrl: 'https://mcp.example.test', mcpKey: 'MCPKEY', encKey,
-                    username: 'me', intervalMin: o.intervalMin || 60};
+                    username: 'me', intervalMin: o.intervalMin || 60,
+                    geminiUrl: 'https://gem.example.test', geminiKey: 'GEMKEY'};
   }
   if (o.state) store.state = o.state;
   const cookie = 'cookie' in o ? o.cookie : {value: 'SID123'};
+  const gemCookie = 'gem' in o ? o.gem : {value: 'G-PSID'};
+  const gemTs = {value: 'G-TS'};
   const w = {store, fetches: [], badges: [], notes: [], tabListeners: [], messageListeners: []};
   const chrome = {
     storage: {local: {
@@ -43,7 +46,12 @@ function world(o = {}) {
       },
       async set(obj) { for (const k of Object.keys(obj)) store[k] = JSON.parse(JSON.stringify(obj[k])); },
     }},
-    cookies: {async get() { return cookie; }},
+    cookies: {async get(d) {
+      if (d.name === 'sessionid') return cookie;
+      if (d.name === '__Secure-1PSID') return gemCookie;
+      if (d.name === '__Secure-1PSIDTS') return gemTs;
+      return null;
+    }},
     action: {setBadgeText(a) { w.badges.push(a.text); }, setBadgeBackgroundColor() {}},
     notifications: {create(...a) { w.notes.push(a); }},
     tabs: {onUpdated: {addListener(f) { w.tabListeners.push(f); }}},
@@ -121,6 +129,43 @@ const out = {};
   out.manualFetches = w.fetches.length;
   out.manualNotes = w.notes.length;
 
+  // Gemini: a gemini.google.com page syncs the two Gemini cookies with the sync key, on its own interval.
+  const GEM = 'https://gemini.google.com/app/abc';
+  w = world(); await w.fire(GEM);
+  out.gemFetches = w.fetches.length;
+  out.gemUrl = w.fetches[0] && w.fetches[0].url;
+  out.gemKeyHeader = w.fetches[0] && w.fetches[0].opts.headers['X-API-Key'];
+  out.gemNames = w.fetches[0] && JSON.parse(JSON.parse(w.fetches[0].opts.body).cookies).map((c) => c.name);
+  out.gemOk = w.store.state.gemini && w.store.state.gemini.lastResult.ok;
+  out.gemBadge = w.badges[w.badges.length - 1];
+  out.gemInstaResult = w.store.state.lastResult || null;  // the Instagram result is untouched
+  await w.fire(GEM);
+  out.gemThrottled = w.fetches.length;
+  w = world({state: {gemini: {lastSyncAt: Date.now() - 61 * MIN}}}); await w.fire(GEM);
+  out.gemStale = w.fetches.length;
+  w = world({state: {lastSyncAt: Date.now()}}); await w.fire(GEM);
+  out.gemIndependent = w.fetches.length;  // a recent Instagram sync does not hold back Gemini
+  w = world({configured: false}); await w.fire(GEM);
+  out.gemUnconfigured = w.fetches.length;
+  w = world({gem: null}); await w.fire(GEM);
+  out.gemNoLoginFetches = w.fetches.length;
+  out.gemNoLoginMessage = w.store.state.gemini.lastResult.message;
+  out.gemNoLoginBadge = w.badges[w.badges.length - 1];
+  w = world({serverStatus: 401, serverBody: {detail: 'nope'}}); await w.fire(GEM);
+  out.gemRejected = w.store.state.gemini.lastResult.message;
+  w = world(); await w.fire(IG);
+  out.instaPageGeminiCalls = w.fetches.filter((f) => f.url.includes('gem.example.test')).length;
+  w = world({state: {gemini: {lastSyncAt: Date.now()}}});
+  const gr = await w.send({type: 'syncSite', site: 'gemini'});
+  out.gemManualOk = gr.ok;
+  out.gemManualFetches = w.fetches.length;
+  w = world({}); const st = await w.send({type: 'status'});
+  out.statusGemConfigured = st.gemini.configured;
+  out.statusGemLoggedIn = st.gemini.loggedIn;
+  out.statusInstaLoggedIn = st.instagram.loggedIn;
+  w = world({gem: null}); const st2 = await w.send({type: 'status'});
+  out.statusGemLoggedOut = st2.gemini.loggedIn;
+
   console.log(JSON.stringify(out));
 })().catch((e) => { console.error((e && e.stack) || e); process.exit(1); });
 """
@@ -187,6 +232,42 @@ class ExtensionAutoSyncTests(unittest.TestCase):
         self.assertTrue(self.out["manualOk"])
         self.assertEqual(self.out["manualFetches"], 1)
         self.assertEqual(self.out["manualNotes"], 0)
+
+    def test_gemini_page_syncs_both_gemini_cookies_with_the_sync_key(self):
+        self.assertEqual(self.out["gemFetches"], 1)
+        self.assertEqual(self.out["gemUrl"], "https://gem.example.test/api/session/sync")
+        self.assertEqual(self.out["gemKeyHeader"], "GEMKEY")
+        self.assertEqual(self.out["gemNames"], ["__Secure-1PSID", "__Secure-1PSIDTS"])
+        self.assertTrue(self.out["gemOk"])
+        self.assertEqual(self.out["gemBadge"], "")
+        self.assertIsNone(self.out["gemInstaResult"])
+
+    def test_gemini_waits_one_interval_and_is_separate_from_instagram(self):
+        self.assertEqual(self.out["gemThrottled"], 1)
+        self.assertEqual(self.out["gemStale"], 1)
+        self.assertEqual(self.out["gemIndependent"], 1)
+
+    def test_gemini_unconfigured_or_logged_out_does_not_call_the_server(self):
+        self.assertEqual(self.out["gemUnconfigured"], 0)
+        self.assertEqual(self.out["gemNoLoginFetches"], 0)
+        self.assertIn("gemini.google.com", self.out["gemNoLoginMessage"])
+        self.assertEqual(self.out["gemNoLoginBadge"], "!")
+
+    def test_gemini_rejected_key_is_reported(self):
+        self.assertEqual(self.out["gemRejected"], "The Gemini server rejected the sync key.")
+
+    def test_instagram_page_never_calls_the_gemini_server(self):
+        self.assertEqual(self.out["instaPageGeminiCalls"], 0)
+
+    def test_manual_gemini_sync_ignores_the_interval(self):
+        self.assertTrue(self.out["gemManualOk"])
+        self.assertEqual(self.out["gemManualFetches"], 1)
+
+    def test_status_reports_each_site(self):
+        self.assertTrue(self.out["statusGemConfigured"])
+        self.assertTrue(self.out["statusGemLoggedIn"])
+        self.assertTrue(self.out["statusInstaLoggedIn"])
+        self.assertFalse(self.out["statusGemLoggedOut"])
 
 
 if __name__ == "__main__":
