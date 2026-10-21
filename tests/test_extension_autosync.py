@@ -1,4 +1,4 @@
-"""Offline check of the browser extension's automatic sync rules.
+"""Offline check of the Instagram browser extension's automatic sync rules.
 
 Runs the real vercel-api/public/extension/background.js (and fernet.js) inside Node with a fake
 chrome.* API. Skipped when Node.js is not installed.
@@ -22,6 +22,7 @@ const FERNET = fs.readFileSync(fernetPath, 'utf8');
 const BG = fs.readFileSync(bgPath, 'utf8');
 const IG = 'https://www.instagram.com/accounts/login/';
 const OTHER = 'https://example.com/';
+const GEM = 'https://gemini.google.com/app/abc';
 const MIN = 60 * 1000;
 const flush = () => new Promise((r) => setTimeout(r, 30));
 
@@ -43,7 +44,7 @@ function world(o = {}) {
       },
       async set(obj) { for (const k of Object.keys(obj)) store[k] = JSON.parse(JSON.stringify(obj[k])); },
     }},
-    cookies: {async get() { return cookie; }},
+    cookies: {async get(d) { return d.name === 'sessionid' ? cookie : null; }},
     action: {setBadgeText(a) { w.badges.push(a.text); }, setBadgeBackgroundColor() {}},
     notifications: {create(...a) { w.notes.push(a); }},
     tabs: {onUpdated: {addListener(f) { w.tabListeners.push(f); }}},
@@ -121,6 +122,20 @@ const out = {};
   out.manualFetches = w.fetches.length;
   out.manualNotes = w.notes.length;
 
+  // A gemini.google.com page is none of this extension's business: no call to the Instagram server.
+  w = world(); await w.fire(GEM);
+  out.geminiPageFetches = w.fetches.length;
+
+  w = world({}); const st = await w.send({type: 'status'});
+  out.statusConfigured = st.configured;
+  out.statusLoggedIn = st.loggedIn;
+  w = world({cookie: null}); out.statusLoggedOut = (await w.send({type: 'status'})).loggedIn;
+
+  w = world({serverBody: {status: 'ok', server: 'test'}});
+  out.pingOk = (await w.send({type: 'ping'})).ok;
+  w = world({serverBody: {status: 'nope'}});
+  out.pingBad = (await w.send({type: 'ping'})).ok;
+
   console.log(JSON.stringify(out));
 })().catch((e) => { console.error((e && e.stack) || e); process.exit(1); });
 """
@@ -187,6 +202,16 @@ class ExtensionAutoSyncTests(unittest.TestCase):
         self.assertTrue(self.out["manualOk"])
         self.assertEqual(self.out["manualFetches"], 1)
         self.assertEqual(self.out["manualNotes"], 0)
+
+    def test_a_gemini_page_is_left_alone(self):
+        self.assertEqual(self.out["geminiPageFetches"], 0)
+
+    def test_status_and_ping(self):
+        self.assertTrue(self.out["statusConfigured"])
+        self.assertTrue(self.out["statusLoggedIn"])
+        self.assertFalse(self.out["statusLoggedOut"])
+        self.assertTrue(self.out["pingOk"])
+        self.assertFalse(self.out["pingBad"])
 
 
 if __name__ == "__main__":

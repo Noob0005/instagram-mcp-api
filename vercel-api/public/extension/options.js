@@ -5,6 +5,11 @@ function show(message, ok) {
   $("out").className = ok ? "ok" : "bad";
 }
 
+function lastText(at, result) {
+  return (at ? new Date(at).toLocaleString() : "never") +
+    (result && !result.ok ? "  (last attempt failed: " + result.message + ")" : "");
+}
+
 async function load() {
   let { config = {}, state = {} } = await chrome.storage.local.get(["config", "state"]);
   if (!config.mcpKey) {
@@ -19,9 +24,7 @@ async function load() {
   $("encKey").value = config.encKey || "";
   $("username").value = config.username || "";
   $("intervalMin").value = String(config.intervalMin || 60);
-  const last = state.lastResult;
-  $("last").textContent = (state.lastSyncAt ? new Date(state.lastSyncAt).toLocaleString() : "never") +
-    (last && !last.ok ? "  (last attempt failed: " + last.message + ")" : "");
+  $("last").textContent = lastText(state.lastSyncAt, state.lastResult);
 }
 
 $("save").addEventListener("click", async () => {
@@ -32,7 +35,8 @@ $("save").addEventListener("click", async () => {
     username: $("username").value.trim(),
     intervalMin: Number($("intervalMin").value) || 60,
   };
-  if (!/^https:\/\//.test(config.serverUrl) && !/^http:\/\/localhost/.test(config.serverUrl)) {
+  const httpsOrLocal = (u) => !u || /^https:\/\//.test(u) || /^http:\/\/localhost/.test(u);
+  if (!httpsOrLocal(config.serverUrl)) {
     show("The server URL must start with https://", false);
     return;
   }
@@ -46,7 +50,7 @@ $("test").addEventListener("click", async () => {
 });
 
 $("sync").addEventListener("click", async () => {
-  show("Syncing…", true);
+  show("Syncing Instagram…", true);
   const r = await chrome.runtime.sendMessage({ type: "syncNow" });
   show(r.message, r.ok);
   load();
