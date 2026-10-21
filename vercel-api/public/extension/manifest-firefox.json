@@ -1,15 +1,15 @@
 {
   "manifest_version": 3,
-  "name": "Session Sync",
-  "version": "1.1.0",
-  "description": "Copies your Instagram and Gemini logins from this browser to your own servers when you open those sites.",
+  "name": "Instagram Session Sync",
+  "version": "1.2.0",
+  "description": "Copies your Instagram login from this browser to your own Instagram MCP server when you open instagram.com.",
   "permissions": ["cookies", "storage"],
-  "host_permissions": ["https://www.instagram.com/*", "https://gemini.google.com/*", "https://*/*"],
+  "host_permissions": ["https://www.instagram.com/*", "https://*/*"],
   "background": { "scripts": ["fernet.js", "background.js"] },
   "content_scripts": [
-    { "matches": ["https://www.instagram.com/*", "https://gemini.google.com/*"], "js": ["content.js"], "run_at": "document_idle" }
+    { "matches": ["https://www.instagram.com/*"], "js": ["content.js"], "run_at": "document_idle" }
   ],
-  "action": { "default_title": "Session Sync" },
+  "action": { "default_title": "Instagram Session Sync" },
   "options_ui": { "page": "options.html", "open_in_tab": true },
   "icons": { "128": "icon.png" },
   "browser_specific_settings": { "gecko": { "id": "instagram-mcp-sync@local", "strict_min_version": "128.0" } }

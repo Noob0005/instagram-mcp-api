@@ -23,12 +23,8 @@ async function load() {
   $("mcpKey").value = config.mcpKey || "";
   $("encKey").value = config.encKey || "";
   $("username").value = config.username || "";
-  $("geminiUrl").value = config.geminiUrl || "";
-  $("geminiKey").value = config.geminiKey || "";
   $("intervalMin").value = String(config.intervalMin || 60);
   $("last").textContent = lastText(state.lastSyncAt, state.lastResult);
-  const gem = state.gemini || {};
-  $("lastGemini").textContent = lastText(gem.lastSyncAt, gem.lastResult);
 }
 
 $("save").addEventListener("click", async () => {
@@ -37,13 +33,11 @@ $("save").addEventListener("click", async () => {
     mcpKey: $("mcpKey").value.trim(),
     encKey: $("encKey").value.trim(),
     username: $("username").value.trim(),
-    geminiUrl: $("geminiUrl").value.trim(),
-    geminiKey: $("geminiKey").value.trim(),
     intervalMin: Number($("intervalMin").value) || 60,
   };
   const httpsOrLocal = (u) => !u || /^https:\/\//.test(u) || /^http:\/\/localhost/.test(u);
-  if (!httpsOrLocal(config.serverUrl) || !httpsOrLocal(config.geminiUrl)) {
-    show("Server URLs must start with https://", false);
+  if (!httpsOrLocal(config.serverUrl)) {
+    show("The server URL must start with https://", false);
     return;
   }
   await chrome.storage.local.set({ config });
@@ -58,13 +52,6 @@ $("test").addEventListener("click", async () => {
 $("sync").addEventListener("click", async () => {
   show("Syncing Instagram…", true);
   const r = await chrome.runtime.sendMessage({ type: "syncNow" });
-  show(r.message, r.ok);
-  load();
-});
-
-$("syncGemini").addEventListener("click", async () => {
-  show("Syncing Gemini…", true);
-  const r = await chrome.runtime.sendMessage({ type: "syncSite", site: "gemini" });
   show(r.message, r.ok);
   load();
 });
