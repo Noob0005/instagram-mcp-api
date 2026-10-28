@@ -165,7 +165,7 @@ class HandlerTests(unittest.TestCase):
     def test_page_is_served_with_security_headers(self):
         status, hdrs, body = call("GET", "/")
         self.assertEqual(status, 200)
-        self.assertIn("ARCHIVE", body)
+        self.assertIn("Instagram MCP", body)
         self.assertIn("frame-ancestors 'none'", hdrs["content-security-policy"])
         self.assertEqual(hdrs["cache-control"], "no-store")
         for secret in BASE_ENV.values():
