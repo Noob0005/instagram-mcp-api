@@ -30,7 +30,9 @@ HOUR = 3600
 
 
 def reset():
-    for path in (INDEX, SETTINGS):
+    # Read the paths now, not at import: both test modules set the same variables when they load.
+    for var in ("INSTAGRAM_MCP_UPLOAD_INDEX_PATH", "INSTAGRAM_MCP_UPLOAD_SETTINGS_PATH"):
+        path = os.environ[var]
         if os.path.exists(path):
             os.remove(path)
 

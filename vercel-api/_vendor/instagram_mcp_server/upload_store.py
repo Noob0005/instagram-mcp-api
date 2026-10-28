@@ -199,6 +199,27 @@ def set_caption(upload_id: str, caption: str) -> bool:
     return changed["v"]
 
 
+def set_title(upload_id: str, title: str) -> bool:
+    """Set the display name shown on the upload page. The stored file is not renamed. True when found."""
+    changed = {"v": False}
+
+    def mutate(index):
+        if not isinstance(index, dict):
+            return None
+        for u in index.get("uploads") or []:
+            if u.get("id") == upload_id:
+                u["title"] = (title or "").strip()[:120]
+                u["updated_at"] = time.time()
+                changed["v"] = True
+        return index
+
+    if blob_available():
+        blob_store.update_json(blob_store.index_key(), mutate, copy.deepcopy(INDEX_DEFAULT))
+    else:
+        _mutate_local(mutate)
+    return changed["v"]
+
+
 def fetch_thumb(rec: Dict[str, Any]) -> Optional[bytes]:
     """Return the stored thumbnail bytes, or None when the upload has none."""
     if not rec.get("thumb_pathname") or not blob_available():
