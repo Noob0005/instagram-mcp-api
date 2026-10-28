@@ -98,7 +98,20 @@ async def app(scope, receive, send):
         return
 
     action = body.get("action", "")
-    from instagram_mcp_server import blob_store, upload_store
+    from instagram_mcp_server import blob_store, upload_settings, upload_store
+
+    if action == "settings":
+        await _send_json(send, 200, {"ok": True, **upload_settings.describe()})
+        return
+
+    if action == "settings_save":
+        try:
+            saved = upload_settings.set_retention_hours(body.get("retention_hours"))
+        except ValueError as exc:
+            await _send_json(send, 400, {"ok": False, "error": str(exc), **upload_settings.describe()})
+            return
+        await _send_json(send, 200, {"ok": True, **saved})
+        return
 
     if action == "begin":
         filename = str(body.get("filename") or "file")
@@ -146,4 +159,5 @@ async def app(scope, receive, send):
                                      "next": "ask the assistant to run list_uploads"})
         return
 
-    await _send_json(send, 400, {"error": "unknown action", "actions": ["begin", "commit"]})
+    await _send_json(send, 400, {"error": "unknown action",
+                                 "actions": ["begin", "commit", "settings", "settings_save"]})

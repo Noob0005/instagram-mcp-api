@@ -59,7 +59,7 @@ The dashboard's checklist shows the same list and flags missing or weak values.
 | `INSTAGRAM_MCP_SESSIONID` | optional | Cookie seed for cold-start login. |
 | `INSTAGRAM_MCP_SESSION_JSON` | optional | First-time seed only: an instagrapi settings JSON. Ignored once a session exists in Blob. |
 | `INSTAGRAM_MCP_USERNAME` / `INSTAGRAM_MCP_PASSWORD` | optional | Last-resort login. Avoid the password. |
-| `INSTAGRAM_MCP_UPLOAD_TTL_DAYS` | optional | Days before unposted uploads are purged. Default `7`. |
+| `INSTAGRAM_MCP_UPLOAD_TTL_DAYS` | removed | Replaced by the retention setting on the upload settings page (default 48 hours). |
 | `INSTAGRAM_MCP_MAX_UPLOAD_BYTES` | optional | Upload size limit. Default 256 MB. |
 | `INSTAGRAM_MCP_BLOB_PREFIX` | optional | Top-level Blob key prefix. Default `instagram-mcp`. |
 | `INSTAGRAM_MCP_BLOB_ACCESS` | optional | `private` (default, recommended) or `public`. Must match the store type. |
@@ -116,7 +116,7 @@ MP4 (H.264 + AAC). The check reads the file's bytes. Anything else returns
 `Error: reel rejected: …` and nothing is uploaded.
 
 **Cleanup:** the Blob copy is deleted after a successful post. A daily cron at 04:00 UTC
-(`vercel.json` → `/api/cleanup`) purges unposted uploads older than `INSTAGRAM_MCP_UPLOAD_TTL_DAYS`.
+(`vercel.json` → `/api/cleanup`) purges unposted uploads older than the retention saved on the upload settings page (default 48 hours).
 
 ## 6. Security
 

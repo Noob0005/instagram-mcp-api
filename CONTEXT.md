@@ -150,3 +150,4 @@ Other: uploads index read-modify-write race; Termux pydantic fix unconfirmed; ph
 - 2026-10-19: Carousel of staged photos via post_upload_album (mcp_server.py, _vendor synced). 168 tests pass.
 - 2026-10-19: Dashboard split into pages (Home, Connect, Environment, Instagram, Tests). 168 tests pass.
 - 2026-10-20: Extension autosync on instagram.com (tests/test_extension_autosync.py runs the real background.js in Node). 178 tests pass.
+- 2026-10-28: Upload retention: 48 h default, saved in Blob (upload_settings.py), cron + purge use it; upload API actions settings / settings_save. Fixed shared-list bug in local upload index defaults. 200 tests pass.

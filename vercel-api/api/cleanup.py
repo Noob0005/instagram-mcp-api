@@ -1,13 +1,13 @@
 """
-Vercel cron function (daily): purge unposted /upload staging files older than 7 days.
+Vercel cron function (daily): purge unposted /upload files older than the saved retention
+(default 48 hours, changeable on the upload settings page).
 
 vercel.json maps GET /api/cleanup to the cron schedule. The cron request is
 authenticated with CRON_SECRET (Authorization: Bearer <CRON_SECRET>) — Vercel
 sends it automatically when the secret is configured in project settings.
 MCP_AUTH_KEY is also accepted for manual runs (?auth=...).
 
-Env vars: BLOB_READ_WRITE_TOKEN (required), INSTAGRAM_MCP_UPLOAD_TTL_DAYS (default 7),
-          CRON_SECRET or MCP_AUTH_KEY.
+Env vars: BLOB_READ_WRITE_TOKEN (required), CRON_SECRET or MCP_AUTH_KEY.
 """
 import json
 import os
@@ -55,10 +55,9 @@ async def app(scope, receive, send):
                                      "hint": "set CRON_SECRET and let Vercel send Authorization: Bearer"})
         return
 
-    days = int(os.environ.get("INSTAGRAM_MCP_UPLOAD_TTL_DAYS", "7"))
     try:
         from instagram_mcp_server import upload_store
-        result = upload_store.purge_expired(days=days)
+        result = upload_store.purge_expired()  # the saved retention, default 48 hours
         await _send_json(send, 200, {"status": "ok", **result})
     except Exception as e:
         await _send_json(send, 500, {"status": "error", "detail": f"{type(e).__name__}: {e}"})
