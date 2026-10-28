@@ -172,11 +172,11 @@ UPLOAD_HTML = r"""<!DOCTYPE html>
       <div>
         <label class="field" for="aspect">Shape</label>
         <select id="aspect">
-          <option value="auto">Automatic</option>
+          <option value="auto">Original size and quality (default)</option>
           <option value="square">Square</option>
           <option value="portrait">Portrait</option>
           <option value="landscape">Landscape</option>
-          <option value="keep">Keep as it is</option>
+          <option value="keep">Original, never cropped</option>
         </select>
       </div>
       <div>

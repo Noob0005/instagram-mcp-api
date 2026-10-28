@@ -154,3 +154,4 @@ Other: uploads index read-modify-write race; Termux pydantic fix unconfirmed; ph
 - 2026-10-28: Upload page rebuilt (per-file progress, My uploads with view/rename/delete, retention settings). API: list, rename, delete, GET thumb/file reads. 214 tests pass.
 - 2026-10-28: upload_from_url MCP tool (instagram_mcp_server/url_upload.py): server downloads a link into Blob, returns id + preview image; falls back to page/thumbnail preview when the file is blocked. Public-address check on every hop. 236 tests pass.
 - 2026-10-28: Dashboard redesigned for non-technical use (Home, Connect, Instagram, Settings, Advanced; phone bottom bar, desktop tabs; light/dark). New admin routes upload_settings GET/POST. 236 tests pass.
+- 2026-10-29: Photos and carousel items default to original size and quality: JPEGs pass through byte-for-byte; other formats re-encode at quality 100 with no resize; quality drops only past the 8 MB limit. 242 tests pass.

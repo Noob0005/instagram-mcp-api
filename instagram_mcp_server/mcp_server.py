@@ -875,29 +875,39 @@ def _feed_info(original, final, mode, cropped, resized) -> dict:
 
 
 def _prepare_feed_image(path: Path, aspect: str = "auto"):
-    """Normalise a feed image to an Instagram-valid ratio/size.
+    """Prepare a feed image for Instagram without losing quality.
 
     aspect:
-      "auto"      keep the ratio when it is inside 4:5 … 1.91:1, otherwise centre-crop
-                  to the nearest allowed edge
-      "square"    1:1 (1080x1080)
-      "portrait"  4:5 (1080x1350 — the tall feed posts Instagram's own app produces)
-      "landscape" 1.91:1 (1080x565)
-      "keep"      leave the ratio alone (Instagram may crop it for you)
+      "auto"      (default) original pixels and resolution. Crops only when the ratio is
+                  outside Instagram's 4:5 … 1.91:1 window.
+      "keep"      original pixels and ratio, never cropped (Instagram may crop it itself)
+      "square"    1:1 frame, 1080 px wide (explicit choice, so it is scaled)
+      "portrait"  4:5 frame, 1080x1350
+      "landscape" 1.91:1 frame, 1080x565
 
-    Returns (path_str, temp_created, info). Photos are also EXIF-rotated so phone
-    pictures are not uploaded sideways.
+    A JPEG that needs no crop, rotation or conversion is sent byte-for-byte. Anything else
+    is re-encoded as JPEG at quality 100 with no chroma subsampling. Quality is lowered only
+    if the file would exceed Instagram's 8 MB limit, and never below 90.
+
+    Returns (path_str, temp_created, info). Photos are EXIF-rotated so phone pictures are
+    not uploaded sideways.
     """
     from PIL import Image, ImageOps
 
     mode = str(aspect or "auto").strip().lower() or "auto"
     if mode not in ("auto", "keep", *_FEED_RATIOS):
         mode = "auto"
-
+    named_frame = mode in _FEED_RATIOS
     max_side = _cfg_int("INSTAGRAM_MCP_MAX_IMAGE_SIDE", 1440)
     max_bytes = _cfg_int("INSTAGRAM_MCP_MAX_IMAGE_BYTES", 8 * 1024 * 1024)
 
     with Image.open(path) as opened:
+        source_format = opened.format
+        source_mode = opened.mode
+        try:
+            orientation = opened.getexif().get(0x0112, 1)
+        except Exception:
+            orientation = 1
         im = ImageOps.exif_transpose(opened)
         im.load()
         original_size = im.size
@@ -912,7 +922,7 @@ def _prepare_feed_image(path: Path, aspect: str = "auto"):
 
         ratio = im.width / float(im.height or 1)
         target = None
-        if mode in _FEED_RATIOS:
+        if named_frame:
             target = _FEED_RATIOS[mode]
         elif mode == "auto" and (ratio > _FEED_MAX_RATIO or ratio < _FEED_MIN_RATIO):
             target = _FEED_MAX_RATIO if ratio > _FEED_MAX_RATIO else _FEED_MIN_RATIO
@@ -931,7 +941,7 @@ def _prepare_feed_image(path: Path, aspect: str = "auto"):
                 cropped = True
 
         resized = False
-        if im.width > _FEED_MAX_WIDTH or max(im.size) > max_side:
+        if named_frame:
             scale = min(_FEED_MAX_WIDTH / float(im.width), max_side / float(max(im.size)))
             if scale < 1:
                 im = im.resize((max(1, int(im.width * scale)), max(1, int(im.height * scale))),
@@ -941,23 +951,28 @@ def _prepare_feed_image(path: Path, aspect: str = "auto"):
         final_size = im.size
         info = _feed_info(original_size, final_size, mode, cropped, resized)
 
-    already_jpeg = path.suffix.lower() in (".jpg", ".jpeg")
-    if not cropped and not resized and already_jpeg:
+    untouched = (not (cropped or resized) and orientation in (None, 1)
+                 and source_format == "JPEG" and source_mode == "RGB")
+    if untouched:
         try:
             if path.stat().st_size <= max_bytes:
+                info["quality"] = "original bytes"
                 return str(path), False, info
         except OSError:
             pass
 
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
     tmp.close()
-    quality = 92
+    quality = 100
     while True:
-        im.save(tmp.name, format="JPEG", quality=quality, optimize=True)
-        if os.path.getsize(tmp.name) <= max_bytes or quality <= 70:
+        im.save(tmp.name, format="JPEG", quality=quality, subsampling=0, optimize=True)
+        if os.path.getsize(tmp.name) <= max_bytes or quality <= 90:
             break
-        quality -= 10
+        quality -= 2
+    info["quality"] = quality
+    info["over_8mb_limit"] = os.path.getsize(tmp.name) > max_bytes
     return tmp.name, True, info
+
 
 def _resolve_image_source(path_or_url: str):
     """Resolve a local path, file:// URI, or http(s) URL to an uploadable local file.
