@@ -49,6 +49,11 @@ class UploadPageEmbeddedTests(unittest.TestCase):
     def test_status_is_not_overwritten_after_done(self):
         self.assertIn('if (item.state !== "uploading") return;', UPLOAD_HTML)
 
+    def test_page_has_a_live_copyable_activity_log(self):
+        for needle in ('id="log"', 'id="logCopy"', 'id="logCheck"', "Copy log", "function redact(",
+                       'const BUILD = "', "window.fetch = async function"):
+            self.assertIn(needle, UPLOAD_HTML)
+
 
 if __name__ == "__main__":
     unittest.main()
