@@ -119,6 +119,21 @@ async def _serve_media(scope, send) -> None:
 
 
 async def app(scope, receive, send):
+    """Never leaks a bare 500: any unexpected error becomes JSON that names the problem and is logged."""
+    try:
+        await _app(scope, receive, send)
+    except Exception as exc:
+        import traceback
+        traceback.print_exc()
+        if scope.get("type") == "http":
+            await _send_json(send, 500, {
+                "error": "server_error",
+                "detail": f"{type(exc).__name__}: {str(exc)[:300]}",
+                "hint": "Check the Vercel function logs for this request.",
+            })
+
+
+async def _app(scope, receive, send):
     if scope["type"] == "lifespan":
         await send({"type": "lifespan.startup.complete"})
         return
