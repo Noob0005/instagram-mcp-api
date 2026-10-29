@@ -187,6 +187,13 @@ input:focus,select:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--
   .title small{display:none}
   .dock{padding-left:14px; padding-right:14px}
 }
+.logbox{margin-top:16px; padding:0 16px 14px}
+.logbox summary{cursor:pointer; list-style:none; display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px 12px; align-items:center; padding:14px 0; font-weight:700}
+.logbox summary::-webkit-details-marker{display:none}
+.logbox .sub-s{color:var(--muted); font-weight:500; font-size:.82rem}
+.log-tools{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px}
+.log{margin:0; max-height:280px; overflow:auto; background:var(--soft); border:1px solid var(--line); border-radius:var(--r-sm);
+  padding:10px 12px; min-height:72px; font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; white-space:pre-wrap; word-break:break-word; color:var(--ink2)}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none !important; transition:none !important}}
 </style>
 </head>
@@ -253,6 +260,15 @@ input:focus,select:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--
         </div>
       </details>
     </div>
+    <details class="card logbox" id="logBox" open>
+      <summary><span>Activity log</span><span class="sub-s">Updates live. Copy it into the chat if something goes wrong.</span></summary>
+      <div class="log-tools">
+        <button class="btn" id="logCheck" type="button">Check setup</button>
+        <button class="btn primary" id="logCopy" type="button">Copy log</button>
+        <button class="btn" id="logClear" type="button">Clear</button>
+      </div>
+      <pre class="log" id="log" tabindex="0"></pre>
+    </details>
   </section>
 
   <!-- LIBRARY -->
@@ -299,6 +315,57 @@ if (AUTH) sessionStorage.setItem("mcp_auth", AUTH);
 const H = {"X-Auth-Key": AUTH};
 const $ = (id) => document.getElementById(id);
 const DEFAULT_HOURS = 48;
+const BUILD = "2026-10-29 logs";
+const LOG_LIMIT = 500;
+const logLines = [];
+function redact(s) {
+  let out = String(s);
+  if (AUTH) out = out.split(AUTH).join("<key>");
+  return out
+    .replace(/vercel_blob_(client|rw)_[A-Za-z0-9_\-]+/g, "<token>")
+    .replace(/([?&]auth=)[^&\s"']+/g, "$1<key>");
+}
+function errText(e) {
+  if (e && e.message) return redact((e.name || "Error") + ": " + e.message);
+  return redact(String(e));
+}
+function logLine(level, text) {
+  const stamp = new Date().toLocaleTimeString([], {hour12: false});
+  logLines.push(stamp + " " + level.toUpperCase().padEnd(5) + " " + redact(text));
+  if (logLines.length > LOG_LIMIT) logLines.splice(0, logLines.length - LOG_LIMIT);
+  const pre = document.getElementById("log");
+  if (pre) { pre.textContent = logLines.join("\n"); pre.scrollTop = pre.scrollHeight; }
+  if (level === "error") { const box = document.getElementById("logBox"); if (box) box.open = true; }
+}
+function shortUrl(url) {
+  try {
+    const u = new URL(url, location.href);
+    const where = u.origin === location.origin ? u.pathname : u.host + u.pathname;
+    const pn = u.searchParams.get("pathname");
+    return redact(where + (pn ? "?pathname=" + decodeURIComponent(pn) : ""));
+  } catch (e) { return redact(String(url)).slice(0, 160); }
+}
+const nativeFetch = window.fetch.bind(window);
+window.fetch = async function (input, init) {
+  const url = typeof input === "string" ? input : (input && input.url) || String(input);
+  const watched = /\/api\/|\/upload-client\.js|vercel\.com\/api\/blob|blob\.vercel-storage/.test(url);
+  if (!watched) return nativeFetch(input, init);
+  const method = (init && init.method) || (input && input.method) || "GET";
+  const label = method + " " + shortUrl(url);
+  logLine("net", "-> " + label);
+  try {
+    const res = await nativeFetch(input, init);
+    let snippet = "";
+    if (!res.ok || /\/api\//.test(url)) {
+      try { snippet = " " + (await res.clone().text()).slice(0, 240); } catch (e) { snippet = ""; }
+    }
+    logLine(res.ok ? "net" : "error", "<- " + res.status + " " + label + snippet);
+    return res;
+  } catch (e) {
+    logLine("error", "x  " + label + " failed: " + errText(e));
+    throw e;
+  }
+};
 
 function el(tag, props, ...children) {
   const node = document.createElement(tag);
@@ -330,6 +397,7 @@ function toast(message, tone) {
 }
 
 async function api(body) {
+  logLine("info", "action " + body.action + (body.filename ? " " + body.filename : ""));
   const r = await fetch('/api/upload', {
     method: "POST", headers: {...H, "Content-Type": "application/json"}, body: JSON.stringify(body),
   });
@@ -352,6 +420,7 @@ function friendly(e) {
   const msg = (e && e.message) || "";
   if (/content.?type|not allowed/i.test(msg)) return "This file type is not supported. Use JPEG, PNG, WebP, GIF, MP4 or MOV.";
   if (/too large|maximum/i.test(msg)) return "This file is too large to upload.";
+  if (/client token/i.test(msg)) return "The server did not approve this upload. Open the page again from your dashboard link. The activity log shows the exact reply.";
   return msg || "Upload failed. Try again.";
 }
 
@@ -493,6 +562,7 @@ async function makeThumb(file) {
 async function uploadItem(item) {
   const f = item.file;
   const kind = kindOf(f);
+  logLine("info", "start " + f.name + " (" + kindOf(f) + ", " + f.size + " bytes, " + (typeFor(f) || "unknown type") + ")");
   setState(item, "uploading", "Preparing...");
   setPct(item, 0);
   const slot = await api({action: 'begin', filename: f.name, size: f.size,
@@ -508,6 +578,8 @@ async function uploadItem(item) {
     onUploadProgress: (e) => {
       if (item.state !== "uploading") return;
       setPct(item, e.percentage);
+      const milestone = Math.floor(e.percentage / 25) * 25;
+      if (milestone !== item.milestone) { item.milestone = milestone; logLine("info", f.name + " " + milestone + "%"); }
       item.status.textContent = "Uploading... " + Math.round(e.percentage) + "%";
     },
   });
@@ -524,12 +596,13 @@ async function uploadItem(item) {
         contentType: "image/jpeg",
       });
       thumbPathname = tb.pathname;
-    } catch (e) { thumbPathname = ""; }
+    } catch (e) { thumbPathname = ""; logLine("warn", "preview not saved: " + errText(e)); }
   }
   const caption = (item.caption || "").trim();
   await api({action: 'commit', filename: f.name, pathname: blob.pathname, url: blob.url, size: f.size,
     content_type: typeFor(f), kind, aspect: $("aspect").value, caption, thumb_pathname: thumbPathname});
   setPct(item, 100);
+  logLine("info", "done " + f.name);
   setState(item, "done", "Uploaded");
 }
 
@@ -543,7 +616,7 @@ async function startAll() {
     batch.index += 1;
     updateDock();
     try { await uploadItem(item); ok += 1; }
-    catch (e) { setState(item, "failed", friendly(e)); }
+    catch (e) { logLine("error", item.file.name + " failed: " + errText(e)); setState(item, "failed", friendly(e)); }
   }
   busy = false; updateDock();
   if (ok) toast(ok === 1 ? "Uploaded. It is in your Library." : ok + " files uploaded. They are in your Library.", "ok");
@@ -585,6 +658,7 @@ async function loadUploads() {
     renderLibrary();
   } catch (e) {
     $("grid").replaceChildren();
+    logLine("error", "library: " + errText(e));
     showEmpty("Could not load your library", e.message);
     toast(e.message, "bad");
   }
@@ -732,6 +806,42 @@ async function openSettings() {
 }
 $("openSettings").addEventListener("click", openSettings);
 
+/* ---------- activity log ---------- */
+async function runCheck() {
+  logLine("info", "Check setup started");
+  logLine("info", "page " + location.pathname + " | online " + navigator.onLine + " | " + navigator.userAgent.slice(0, 120));
+  try { await import("/upload-client.js"); logLine("info", "upload library: loads OK"); }
+  catch (e) { logLine("error", "upload library: FAILED to load: " + errText(e)); }
+  try { const d = await api({action: "settings"}); logLine("info", "server: reachable, keeps unposted files " + d.retention_hours + " h"); }
+  catch (e) { logLine("error", "server: " + errText(e)); }
+  try {
+    const r = await fetch("/api/blob-token", {method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({type: "blob.generate-client-token", payload: {pathname: "instagram-mcp/uploads/check/none.jpg",
+        clientPayload: JSON.stringify({key: "check"}), multipart: false}})});
+    const text = await r.text();
+    logLine(r.status < 500 ? "info" : "error", "upload token endpoint: HTTP " + r.status + " " + text.slice(0, 200)
+      + (r.status === 400 || r.status === 401 ? " (expected here: this check uses a fake key)" : ""));
+  } catch (e) { logLine("error", "upload token endpoint: " + errText(e)); }
+  logLine("info", "Check setup finished");
+}
+async function copyLog() {
+  const text = logLines.join("\n") || "(the log is empty)";
+  try {
+    await navigator.clipboard.writeText(text);
+    toast("Log copied. Paste it into the chat.", "ok");
+  } catch (e) {
+    const area = document.createElement("textarea");
+    area.value = text; document.body.append(area); area.select();
+    let ok = false;
+    try { ok = document.execCommand("copy"); } catch (x) { ok = false; }
+    area.remove();
+    toast(ok ? "Log copied. Paste it into the chat." : "Could not copy. Select the log text and copy it.", ok ? "ok" : "bad");
+  }
+}
+$("logCopy").addEventListener("click", copyLog);
+$("logCheck").addEventListener("click", runCheck);
+$("logClear").addEventListener("click", () => { logLines.length = 0; logLine("info", "Log cleared"); });
+
 /* ---------- start ---------- */
 if (!AUTH) {
   $("dockSub").textContent = "This page needs its key. Open it from your dashboard.";
@@ -740,6 +850,10 @@ if (!AUTH) {
 } else {
   api({action: 'settings'}).then((d) => { $("keepHours").textContent = d.retention_hours; }).catch(() => {});
 }
+window.addEventListener("error", (e) => logLine("error", "page error: " + (e.message || "unknown")
+  + (e.filename ? " at " + e.filename.split("/").pop() + ":" + e.lineno : "")));
+window.addEventListener("unhandledrejection", (e) => logLine("error", "unhandled: " + errText(e.reason)));
+logLine("info", "Page opened. Build " + BUILD + ". Key " + (AUTH ? "present (" + AUTH.length + " characters)" : "MISSING: open this page from the dashboard link") + ".");
 updateDock();
 </script>
 </body>
