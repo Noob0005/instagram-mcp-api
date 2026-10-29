@@ -237,21 +237,18 @@ input:focus,select:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--
       <div class="queue" id="queue" aria-live="polite"></div>
 
       <details class="opts" id="opts">
-        <summary>Options for this batch</summary>
+        <summary>Photo settings</summary>
         <div class="grid2">
           <div>
             <label class="f" for="aspect">Shape</label>
             <select id="aspect">
-              <option value="auto">Original size and quality (default)</option>
-              <option value="keep">Original, never cropped</option>
-              <option value="square">Square 1:1</option>
-              <option value="portrait">Portrait 4:5</option>
-              <option value="landscape">Landscape 1.91:1</option>
+              <option value="keep">Original, no changes (default)</option>
+              <option value="auto">Fit Instagram's shapes (crop only if needed)</option>
+              <option value="square">Square 1:1 (resized)</option>
+              <option value="portrait">Portrait 4:5 (resized)</option>
+              <option value="landscape">Landscape 1.91:1 (resized)</option>
             </select>
-          </div>
-          <div>
-            <label class="f" for="caption-all">Caption for every file (optional)</label>
-            <input type="text" id="caption-all" maxlength="2200" placeholder="Each file can also have its own caption">
+            <p class="sub">Original keeps every pixel and the full frame. Nothing is cropped or resized.</p>
           </div>
         </div>
       </details>
@@ -339,17 +336,36 @@ async function api(body) {
   const data = await r.json().catch(() => ({}));
   if (!r.ok) {
     if (r.status === 401) throw new Error("This link has no valid key. Open the upload page from your dashboard.");
-    throw new Error(data.error === "server_error"
-      ? "The server hit a problem: " + (data.detail || "unknown error") + ". Try again in a moment."
-      : (data.error || ("Something went wrong (" + r.status + ").")));
+    throw new Error(friendlyApi(data, r.status));
   }
   return data;
+}
+
+function friendlyApi(data, status) {
+  if (data.error === "blob_not_configured") {
+    return "File storage is not connected to this project yet. Connect Vercel Blob in the project settings, then try again.";
+  }
+  if (data.error === "server_error") return "The server hit a problem: " + (data.detail || "unknown error") + ". Try again in a moment.";
+  return data.error || ("Something went wrong (" + status + ").");
+}
+function friendly(e) {
+  const msg = (e && e.message) || "";
+  if (/content.?type|not allowed/i.test(msg)) return "This file type is not supported. Use JPEG, PNG, WebP, GIF, MP4 or MOV.";
+  if (/too large|maximum/i.test(msg)) return "This file is too large to upload.";
+  return msg || "Upload failed. Try again.";
 }
 
 const mediaUrl = (id, what) => "/api/upload?" + what + "=" + encodeURIComponent(id) + "&auth=" + encodeURIComponent(AUTH);
 const isVideo = (file) => (file.type || "").startsWith("video/") || /\.(mp4|mov|m4v)$/i.test(file.name);
 const kindOf = (file) => (isVideo(file) ? "reel" : "photo");
-const isMedia = (file) => /^(image|video)\//.test(file.type) || /\.(jpe?g|png|webp|gif|heic|mp4|mov|m4v)$/i.test(file.name);
+const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/gif", "video/mp4", "video/quicktime", "video/x-m4v"];
+const EXT_TYPES = {jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif",
+  mp4: "video/mp4", mov: "video/quicktime", m4v: "video/x-m4v"};
+function typeFor(file) {
+  if (ALLOWED.includes(file.type)) return file.type;
+  return EXT_TYPES[(file.name.split(".").pop() || "").toLowerCase()] || "";
+}
+const isMedia = (file) => !!typeFor(file);
 function fmtSize(bytes) {
   if (!bytes) return "";
   if (bytes < 1024 * 1024) return Math.max(1, Math.round(bytes / 1024)) + " KB";
@@ -374,6 +390,7 @@ $("tabLib").addEventListener("click", () => showTab("lib"));
 /* ---------- queue ---------- */
 const queue = [];
 let busy = false;
+let batch = {total: 0, index: 0};
 
 function setState(item, state, text) {
   item.state = state;
@@ -421,7 +438,7 @@ function addFiles(files) {
     queue.push(item);
     renderItem(item);
   }
-  if (skipped) toast(skipped + (skipped === 1 ? " file is" : " files are") + " not a photo or video and was skipped.", "bad");
+  if (skipped) toast(skipped + (skipped === 1 ? " file was" : " files were") + " skipped. Use JPEG, PNG, WebP, GIF, MP4 or MOV (export HEIC photos as JPEG).", "bad");
   updateDock();
 }
 
@@ -429,8 +446,13 @@ function updateDock() {
   const ready = queue.filter((i) => i.state === "ready" || i.state === "failed");
   const finished = queue.filter((i) => i.state === "done" || i.state === "failed");
   const bytes = ready.reduce((n, i) => n + i.file.size, 0);
-  $("dockTitle").textContent = ready.length ? ready.length + (ready.length === 1 ? " file ready" : " files ready") : (queue.length ? "All done" : "No files selected");
-  $("dockSub").textContent = ready.length ? fmtSize(bytes) + " in total" : (queue.length ? "Uploaded files are in the Library." : "Choose photos or videos to begin.");
+  if (busy) {
+    $("dockTitle").textContent = "Uploading " + batch.index + " of " + batch.total;
+    $("dockSub").textContent = "Keep this page open until it finishes.";
+  } else {
+    $("dockTitle").textContent = ready.length ? ready.length + (ready.length === 1 ? " file ready" : " files ready") : (queue.length ? "All done" : "No files selected");
+    $("dockSub").textContent = ready.length ? fmtSize(bytes) + " in total" : (queue.length ? "Uploaded files are in the Library." : "Choose photos or videos to begin.");
+  }
   $("start").disabled = !ready.length || busy;
   $("start").textContent = busy ? "Uploading..." : "Upload";
   $("clear").hidden = !finished.length || busy;
@@ -474,16 +496,17 @@ async function uploadItem(item) {
   setState(item, "uploading", "Preparing...");
   setPct(item, 0);
   const slot = await api({action: 'begin', filename: f.name, size: f.size,
-    content_type: f.type || "application/octet-stream", kind});
+    content_type: typeFor(f), kind});
   setState(item, "uploading", "Uploading...");
-  const {upload} = await import("https://esm.sh/@vercel/blob@2.8.1/client");
+  const {upload} = await import("/upload-client.js");
   const blob = await upload(slot.pathname, f, {
     access: slot.access || "private",
     handleUploadUrl: slot.handle_upload_url || "/api/blob-token",
     clientPayload: JSON.stringify({key: AUTH, kind}),
-    contentType: f.type || undefined,
+    contentType: typeFor(f),
     multipart: f.size > 20 * 1024 * 1024,
     onUploadProgress: (e) => {
+      if (item.state !== "uploading") return;
       setPct(item, e.percentage);
       item.status.textContent = "Uploading... " + Math.round(e.percentage) + "%";
     },
@@ -503,9 +526,9 @@ async function uploadItem(item) {
       thumbPathname = tb.pathname;
     } catch (e) { thumbPathname = ""; }
   }
-  const caption = (item.caption || "").trim() || $("caption-all").value.trim();
+  const caption = (item.caption || "").trim();
   await api({action: 'commit', filename: f.name, pathname: blob.pathname, url: blob.url, size: f.size,
-    content_type: f.type, kind, aspect: $("aspect").value, caption, thumb_pathname: thumbPathname});
+    content_type: typeFor(f), kind, aspect: $("aspect").value, caption, thumb_pathname: thumbPathname});
   setPct(item, 100);
   setState(item, "done", "Uploaded");
 }
@@ -514,10 +537,13 @@ async function startAll() {
   if (busy) return;
   busy = true; updateDock();
   const pending = queue.filter((i) => i.state === "ready" || i.state === "failed");
+  batch = {total: pending.length, index: 0};
   let ok = 0;
   for (const item of pending) {
+    batch.index += 1;
+    updateDock();
     try { await uploadItem(item); ok += 1; }
-    catch (e) { setState(item, "failed", e.message || "Upload failed. Try again."); }
+    catch (e) { setState(item, "failed", friendly(e)); }
   }
   busy = false; updateDock();
   if (ok) toast(ok === 1 ? "Uploaded. It is in your Library." : ok + " files uploaded. They are in your Library.", "ok");
