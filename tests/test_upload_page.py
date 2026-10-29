@@ -34,6 +34,21 @@ class UploadPageEmbeddedTests(unittest.TestCase):
             src = fh.read()
         self.assertNotIn("public\" / \"upload.html", src)
 
+    def test_page_loads_the_blob_client_from_our_own_site(self):
+        # No third-party CDN at upload time; the bundle ships in public/.
+        self.assertNotIn("esm.sh", UPLOAD_HTML)
+        self.assertIn("/upload-client.js", UPLOAD_HTML)
+        here = os.path.join(os.path.dirname(__file__), "..", "vercel-api", "public", "upload-client.js")
+        self.assertTrue(os.path.exists(here))
+
+    def test_one_caption_place_and_original_shape_by_default(self):
+        self.assertIn('<option value="keep">Original, no changes (default)</option>', UPLOAD_HTML)
+        self.assertNotIn('id="caption-all"', UPLOAD_HTML)
+        self.assertIn("Caption for", UPLOAD_HTML)
+
+    def test_status_is_not_overwritten_after_done(self):
+        self.assertIn('if (item.state !== "uploading") return;', UPLOAD_HTML)
+
 
 if __name__ == "__main__":
     unittest.main()

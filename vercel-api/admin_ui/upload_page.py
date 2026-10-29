@@ -9,238 +9,305 @@ UPLOAD_HTML = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
 <title>Upload</title>
 <style>
-  :root {
-    --bg: #f5f6f8; --card: #ffffff; --ink: #1c2026; --muted: #6b7280; --line: #e3e6eb;
-    --accent: #e1306c; --ok: #15803d; --bad: #b91c1c; --radius: 16px;
-    --shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 6px 20px rgba(16, 24, 40, .05);
+:root{
+  --bg:#f6f7fb; --surface:#ffffff; --raised:#ffffff; --ink:#111827; --ink2:#374151; --muted:#6b7280;
+  --line:#e5e7eb; --soft:#f3f4f6; --accent:#4f46e5; --accent-ink:#ffffff; --accent-soft:#eef2ff;
+  --ok:#15803d; --ok-soft:#dcfce7; --bad:#b91c1c; --bad-soft:#fee2e2; --warn:#b45309; --warn-soft:#fef3c7;
+  --r-lg:18px; --r:14px; --r-sm:10px;
+  --shadow:0 1px 2px rgba(17,24,39,.05),0 8px 24px rgba(17,24,39,.06);
+  --scrim:rgba(17,24,39,.45);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0b0d12; --surface:#141820; --raised:#1a1f2a; --ink:#f3f4f6; --ink2:#d1d5db; --muted:#9ca3af;
+    --line:#252b38; --soft:#1c2230; --accent:#818cf8; --accent-ink:#0b0d12; --accent-soft:#1e2247;
+    --ok:#4ade80; --ok-soft:#133222; --bad:#f87171; --bad-soft:#3a1717; --warn:#fbbf24; --warn-soft:#33270f;
+    --shadow:none; --scrim:rgba(0,0,0,.6);
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #0f1115; --card: #171a21; --ink: #eef0f3; --muted: #9aa3b2; --line: #2a303b;
-      --accent: #ff5a8f; --ok: #22c55e; --bad: #f87171; --shadow: none;
-    }
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; background: var(--bg); color: var(--ink);
-    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  }
-  .wrap { max-width: 980px; margin: 0 auto; padding: 24px 16px 72px; }
-  h1 { font-size: 1.6rem; margin: 0 0 4px; }
-  h2 { font-size: 1.1rem; margin: 0; }
-  h3 { margin: 0 0 6px; font-size: 1.05rem; }
-  p { margin: 0 0 10px; }
-  .muted { color: var(--muted); font-size: .92rem; }
-  .card {
-    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
-    padding: 20px; box-shadow: var(--shadow); margin-top: 16px;
-    animation: rise .35s ease both;
-  }
-  .head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-  .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 14px; }
+}
+*{box-sizing:border-box}
+html,body{margin:0; background:var(--bg); color:var(--ink)}
+body{font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; -webkit-font-smoothing:antialiased; min-height:100vh}
+button,input,select{font:inherit; color:inherit}
+.hidden{display:none !important}
+.sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
+svg.i{width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; flex:0 0 auto}
 
-  .btn {
-    appearance: none; border: 1px solid transparent; border-radius: 12px; padding: 10px 16px;
-    font: inherit; font-weight: 600; cursor: pointer; background: var(--line); color: var(--ink);
-    transition: transform .15s ease, opacity .2s ease, background .2s ease;
-  }
-  .btn:hover { transform: translateY(-1px); }
-  .btn:active { transform: scale(.98); }
-  .btn:disabled { opacity: .45; cursor: default; transform: none; }
-  .btn.primary { background: var(--accent); color: #fff; }
-  .btn.ghost { background: transparent; border-color: var(--line); }
-  .btn.danger { background: transparent; color: var(--bad); border-color: var(--line); }
-  .btn.small { padding: 6px 10px; font-size: .88rem; border-radius: 10px; }
-  .btn:focus-visible, .drop:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible {
-    outline: 2px solid var(--accent); outline-offset: 2px;
-  }
+/* app bar */
+.bar{position:sticky; top:0; z-index:20; background:color-mix(in srgb,var(--surface) 88%,transparent);
+  backdrop-filter:saturate(1.4) blur(10px); -webkit-backdrop-filter:saturate(1.4) blur(10px); border-bottom:1px solid var(--line)}
+.bar-in{max-width:1120px; margin:0 auto; padding:12px 20px; display:flex; align-items:center; gap:12px}
+.mark{width:34px; height:34px; border-radius:10px; background:var(--accent); color:var(--accent-ink); display:grid; place-items:center; font-weight:800; font-size:14px}
+.title{font-weight:700; font-size:1.02rem; letter-spacing:-.01em}
+.title small{display:block; font-weight:500; color:var(--muted); font-size:.8rem; letter-spacing:0}
+.bar-end{margin-left:auto; display:flex; align-items:center; gap:8px}
+.chip-keep{display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; background:var(--soft); color:var(--ink2); font-size:.82rem; font-weight:600; white-space:nowrap}
+.icon-btn{width:40px; height:40px; border-radius:12px; border:1px solid var(--line); background:var(--surface); display:grid; place-items:center; cursor:pointer; color:var(--ink2); transition:background .2s,transform .15s}
+.icon-btn:hover{background:var(--soft)}
+.icon-btn:active{transform:scale(.96)}
 
-  input[type=text], input[type=number], select {
-    width: 100%; padding: 11px 12px; border-radius: 12px; border: 1px solid var(--line);
-    background: var(--bg); color: var(--ink); font: inherit;
-    transition: border-color .2s ease;
-  }
-  input:focus, select:focus { border-color: var(--accent); outline: none; }
-  label.field { display: block; font-weight: 600; font-size: .92rem; margin: 0 0 6px; }
-  .fields { display: grid; gap: 14px; grid-template-columns: 1fr; margin-top: 16px; }
-  @media (min-width: 640px) { .fields { grid-template-columns: 1fr 2fr; } }
+/* segmented tabs */
+.tabs{max-width:1120px; margin:0 auto; padding:14px 20px 0}
+.seg{display:inline-grid; grid-auto-flow:column; gap:4px; padding:4px; background:var(--soft); border-radius:12px}
+.seg button{border:0; background:transparent; padding:9px 16px; border-radius:9px; font-weight:600; color:var(--muted); cursor:pointer; display:flex; align-items:center; gap:8px; min-height:40px; transition:background .2s,color .2s}
+.seg button[aria-selected="true"]{background:var(--surface); color:var(--ink); box-shadow:var(--shadow)}
+.count{background:var(--accent-soft); color:var(--accent); border-radius:999px; padding:1px 8px; font-size:.78rem; font-weight:700}
 
-  .drop {
-    display: block; text-align: center; cursor: pointer; border: 2px dashed var(--line);
-    border-radius: 16px; padding: 30px 16px; transition: border-color .2s ease, background .2s ease;
-  }
-  .drop:hover, .drop.over { border-color: var(--accent); background: rgba(225, 48, 108, .06); }
-  .drop strong { display: block; font-size: 1.05rem; margin-bottom: 4px; }
-  .drop .big { font-size: 2rem; line-height: 1; margin-bottom: 8px; }
+main{max-width:1120px; margin:0 auto; padding:18px 20px 140px}
+.panel{animation:rise .3s ease both}
+@keyframes rise{from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none}}
+.card{background:var(--surface); border:1px solid var(--line); border-radius:var(--r-lg); box-shadow:var(--shadow)}
+.pad{padding:20px}
+h2{font-size:1.02rem; margin:0; letter-spacing:-.01em}
+.sub{color:var(--muted); font-size:.9rem; margin:4px 0 0}
 
-  .queue { margin-top: 12px; }
-  .item {
-    display: grid; grid-template-columns: 56px 1fr; gap: 12px; padding: 12px 0;
-    border-top: 1px solid var(--line); animation: rise .3s ease both;
-  }
-  .item:first-child { border-top: 0; }
-  .item.removing { opacity: 0; transform: translateX(8px); transition: opacity .25s ease, transform .25s ease; }
-  .thumb {
-    width: 56px; height: 56px; border-radius: 12px; object-fit: cover;
-    background: var(--line); display: flex; align-items: center; justify-content: center; color: var(--muted);
-  }
-  .row1 { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
-  .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-  .bar { height: 8px; background: var(--line); border-radius: 99px; overflow: hidden; margin: 8px 0 6px; }
-  .bar > i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 99px; transition: width .25s ease; }
-  .item.done .bar > i { background: var(--ok); width: 100% !important; }
-  .item.failed .bar > i { background: var(--bad); }
-  .status { font-size: .88rem; color: var(--muted); }
-  .item.done .status { color: var(--ok); }
-  .item.failed .status { color: var(--bad); }
-  .item input { margin-top: 6px; padding: 8px 10px; font-size: .92rem; border-radius: 10px; }
+/* drop zone */
+.drop{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; text-align:center; cursor:pointer;
+  border:1.5px dashed color-mix(in srgb,var(--accent) 40%,var(--line)); border-radius:var(--r-lg); padding:38px 18px; background:var(--accent-soft);
+  transition:border-color .2s,background .2s,transform .2s}
+.drop:hover,.drop.over{border-color:var(--accent); transform:translateY(-1px)}
+.drop .big{width:52px; height:52px; border-radius:16px; background:var(--surface); color:var(--accent); display:grid; place-items:center; box-shadow:var(--shadow); margin-bottom:6px}
+.drop strong{font-size:1.02rem}
+.drop span{color:var(--muted); font-size:.9rem}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
 
-  .uploads { display: grid; gap: 14px; grid-template-columns: repeat(2, 1fr); margin-top: 14px; }
-  @media (min-width: 640px) { .uploads { grid-template-columns: repeat(3, 1fr); } }
-  @media (min-width: 920px) { .uploads { grid-template-columns: repeat(4, 1fr); } }
-  .tile {
-    border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--card);
-    display: flex; flex-direction: column; animation: rise .35s ease both;
-    transition: transform .2s ease, box-shadow .2s ease;
-  }
-  .tile:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
-  .pic {
-    aspect-ratio: 4 / 5; background: var(--line); display: flex; align-items: center; justify-content: center;
-    color: var(--muted); font-size: 1.8rem; overflow: hidden;
-  }
-  .pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .tbody { padding: 10px 12px 4px; min-width: 0; }
-  .tname { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .tmeta { font-size: .8rem; color: var(--muted); margin-top: 2px; }
-  .tacts { display: flex; gap: 6px; padding: 8px 10px 12px; flex-wrap: wrap; margin-top: auto; }
-  .empty { text-align: center; color: var(--muted); padding: 26px 8px; display: none; }
-  .empty.show { display: block; }
+/* queue */
+.queue{display:grid; gap:10px; margin-top:16px}
+.qitem{display:grid; grid-template-columns:56px minmax(0,1fr) auto; gap:14px; align-items:center; padding:12px; border:1px solid var(--line); border-radius:var(--r); background:var(--raised); animation:rise .25s ease both; transition:opacity .25s,transform .25s}
+.qitem.removing{opacity:0; transform:translateX(10px)}
+.thumb{width:56px; height:56px; border-radius:var(--r-sm); object-fit:cover; background:var(--soft); display:grid; place-items:center; color:var(--muted)}
+.qmain{min-width:0}
+.qrow{display:flex; gap:8px; align-items:baseline; justify-content:space-between}
+.name{font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0}
+.meta{color:var(--muted); font-size:.82rem; white-space:nowrap}
+.bar-track{height:6px; background:var(--soft); border-radius:99px; overflow:hidden; margin:8px 0 6px}
+.bar-track > i{display:block; height:100%; width:0; background:var(--accent); border-radius:99px; transition:width .3s ease}
+.qitem.done .bar-track > i{background:var(--ok); width:100% !important}
+.qitem.failed .bar-track > i{background:var(--bad)}
+.status{font-size:.82rem; color:var(--muted)}
+.qitem.done .status{color:var(--ok)}
+.qitem.failed .status{color:var(--bad)}
+.qitem input{margin-top:6px; min-height:36px; padding:6px 10px; font-size:.88rem}
+.link{border:0; background:none; color:var(--muted); cursor:pointer; padding:6px; border-radius:8px; font-size:.85rem}
+.link:hover{color:var(--ink); background:var(--soft)}
 
-  details summary { cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; }
-  details summary::-webkit-details-marker { display: none; }
-  details summary::after { content: "+"; font-size: 1.4rem; color: var(--muted); transition: transform .2s ease; }
-  details[open] summary::after { transform: rotate(45deg); }
-  details .inner { margin-top: 14px; }
+/* options */
+details.opts{margin-top:16px; border-top:1px solid var(--line); padding-top:14px}
+details.opts summary{cursor:pointer; color:var(--ink2); font-weight:600; list-style:none; display:flex; justify-content:space-between; align-items:center}
+details.opts summary::-webkit-details-marker{display:none}
+details.opts summary::after{content:"+"; color:var(--muted); font-size:1.2rem}
+details.opts[open] summary::after{content:"–"}
+.grid2{display:grid; gap:12px; grid-template-columns:1fr; margin-top:12px}
+@media (min-width:640px){.grid2{grid-template-columns:200px 1fr}}
+label.f{display:block; font-size:.85rem; font-weight:600; color:var(--ink2); margin:0 0 6px}
+input,select{width:100%; min-height:44px; padding:10px 12px; border-radius:var(--r-sm); border:1px solid var(--line); background:var(--bg); outline:none; font-size:16px; transition:border-color .2s,box-shadow .2s}
+input:focus,select:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft)}
 
-  .overlay {
-    position: fixed; inset: 0; background: rgba(8, 10, 14, .55); display: flex; align-items: center;
-    justify-content: center; padding: 16px; visibility: hidden; opacity: 0;
-    transition: opacity .2s ease, visibility .2s ease; z-index: 10;
-  }
-  .overlay.open { visibility: visible; opacity: 1; }
-  .sheet {
-    background: var(--card); color: var(--ink); border-radius: 18px; width: min(560px, 100%);
-    max-height: 90vh; overflow: auto; padding: 18px; box-shadow: 0 20px 50px rgba(0, 0, 0, .3);
-    transform: translateY(14px) scale(.98); transition: transform .22s ease;
-  }
-  .overlay.open .sheet { transform: none; }
-  .sheet img, .sheet video { width: 100%; border-radius: 12px; display: block; background: var(--line); }
+/* buttons */
+.btn{appearance:none; border:1px solid var(--line); background:var(--surface); color:var(--ink); border-radius:var(--r-sm); padding:10px 16px; min-height:42px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:8px; transition:background .2s,transform .15s,opacity .2s; white-space:nowrap}
+.btn:hover{background:var(--soft)}
+.btn:active{transform:scale(.98)}
+.btn:disabled{opacity:.45; cursor:default; transform:none}
+.btn.primary{background:var(--accent); border-color:var(--accent); color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.06); background:var(--accent)}
+.btn.danger{color:var(--bad)}
+.btn.danger.solid{background:var(--bad); border-color:var(--bad); color:#fff}
 
-  .toast {
-    position: fixed; left: 50%; bottom: 22px; transform: translate(-50%, 16px); opacity: 0;
-    background: var(--ink); color: var(--bg); padding: 11px 16px; border-radius: 12px; max-width: 92vw;
-    transition: opacity .25s ease, transform .25s ease; pointer-events: none; z-index: 20;
-  }
-  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+/* dock: the sticky action bar that appears when files are queued */
+.dock{position:fixed; left:0; right:0; bottom:0; z-index:30; padding:12px 20px calc(12px + env(safe-area-inset-bottom));
+  background:color-mix(in srgb,var(--surface) 92%,transparent); backdrop-filter:blur(10px); border-top:1px solid var(--line);
+  transform:translateY(100%); transition:transform .3s ease}
+.dock.show{transform:none}
+.dock-in{max-width:1120px; margin:0 auto; display:flex; align-items:center; gap:12px}
+.dock-text{min-width:0}
+.dock-text b{display:block}
+.dock-text span{color:var(--muted); font-size:.85rem}
+.dock .btn.primary{margin-left:auto; min-width:140px}
 
-  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-  @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { animation: none !important; transition: none !important; }
-  }
+/* library */
+.toolbar{display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; margin-bottom:14px}
+.search{position:relative; flex:1 1 240px; max-width:360px}
+.search svg{position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--muted)}
+.search input{padding-left:38px; border-radius:999px}
+.chips{display:flex; gap:6px; flex-wrap:wrap}
+.chip{border:1px solid var(--line); background:var(--surface); border-radius:999px; padding:7px 14px; font-weight:600; font-size:.86rem; color:var(--ink2); cursor:pointer; min-height:36px}
+.chip[aria-pressed="true"]{background:var(--ink); color:var(--surface); border-color:var(--ink)}
+.grid{display:grid; gap:14px; grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (min-width:720px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (min-width:1000px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.tile{background:var(--surface); border:1px solid var(--line); border-radius:var(--r); overflow:hidden; display:flex; flex-direction:column; box-shadow:var(--shadow); animation:rise .3s ease both; transition:transform .2s,box-shadow .2s}
+.tile:hover{transform:translateY(-2px)}
+.pic{position:relative; aspect-ratio:4/5; background:var(--soft); display:grid; place-items:center; color:var(--muted); overflow:hidden}
+.pic img{width:100%; height:100%; object-fit:cover; display:block}
+.kind{position:absolute; top:8px; left:8px; background:rgba(17,24,39,.72); color:#fff; border-radius:999px; padding:2px 9px; font-size:.72rem; font-weight:700; letter-spacing:.02em}
+.tb{padding:10px 12px 12px; min-width:0}
+.tn{font-weight:650; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.tm{color:var(--muted); font-size:.8rem; margin-top:2px}
+.ta{display:flex; gap:4px; border-top:1px solid var(--line); padding:6px}
+.ta button{flex:1; border:0; background:none; padding:8px 0; border-radius:8px; color:var(--ink2); cursor:pointer; display:grid; place-items:center; min-height:38px}
+.ta button:hover{background:var(--soft); color:var(--ink)}
+.ta button.del:hover{color:var(--bad)}
+.skel{background:linear-gradient(90deg,var(--soft),var(--line),var(--soft)); background-size:200% 100%; animation:shim 1.2s linear infinite; border-radius:var(--r)}
+@keyframes shim{to{background-position:-200% 0}}
+.empty{text-align:center; padding:48px 16px; color:var(--muted)}
+.empty .art{width:64px; height:64px; margin:0 auto 12px; border-radius:20px; background:var(--soft); display:grid; place-items:center; color:var(--accent)}
+.empty b{color:var(--ink); display:block; margin-bottom:4px; font-size:1.02rem}
+
+/* sheets (bottom on phones, centred on desktop) */
+.scrim{position:fixed; inset:0; background:var(--scrim); z-index:40; opacity:0; visibility:hidden; transition:opacity .25s,visibility .25s; display:flex; align-items:flex-end; justify-content:center}
+.scrim.open{opacity:1; visibility:visible}
+.sheet{width:min(560px,100%); max-height:88vh; overflow:auto; background:var(--raised); border-radius:var(--r-lg) var(--r-lg) 0 0; padding:18px 18px calc(18px + env(safe-area-inset-bottom));
+  transform:translateY(24px); transition:transform .28s cubic-bezier(.2,.8,.2,1); box-shadow:0 -10px 40px rgba(0,0,0,.2)}
+.scrim.open .sheet{transform:none}
+@media (min-width:640px){ .scrim{align-items:center} .sheet{border-radius:var(--r-lg); padding:22px} }
+.sheet h3{margin:0 0 6px; font-size:1.05rem}
+.sheet img,.sheet video{width:100%; border-radius:var(--r); display:block; background:var(--soft); max-height:70vh; object-fit:contain}
+.sheet .row{display:flex; gap:8px; justify-content:flex-end; margin-top:16px; flex-wrap:wrap}
+.presets{display:flex; flex-wrap:wrap; gap:8px; margin:12px 0}
+
+/* toast */
+.toast{position:fixed; left:50%; bottom:92px; transform:translate(-50%,14px); opacity:0; pointer-events:none; background:var(--ink); color:var(--surface); padding:11px 16px; border-radius:12px; max-width:92vw; z-index:60; transition:opacity .25s,transform .25s; box-shadow:var(--shadow)}
+.toast.show{opacity:1; transform:translate(-50%,0)}
+.toast.ok{background:var(--ok); color:#fff}
+.toast.bad{background:var(--bad); color:#fff}
+.notice{border-radius:var(--r-sm); padding:10px 12px; font-size:.9rem; margin-top:12px}
+.notice.bad{background:var(--bad-soft); color:var(--bad)}
+.notice.ok{background:var(--ok-soft); color:var(--ok)}
+.notice.warn{background:var(--warn-soft); color:var(--warn)}
+
+@media (max-width:640px){
+  .bar-in{padding:10px 14px}
+  .tabs,main{padding-left:14px; padding-right:14px}
+  .chip-keep span.long{display:none}
+  .title small{display:none}
+  .dock{padding-left:14px; padding-right:14px}
+}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none !important; transition:none !important}}
 </style>
 </head>
 <body>
-<main class="wrap">
-  <header>
-    <h1>Upload</h1>
-    <p class="muted" id="intro">Send photos and videos for your Instagram posts.</p>
-  </header>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-img" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="m10 9 5 3-5 3z"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.3L21 8"/><path d="M21 3v5h-5"/></symbol>
+</svg>
 
-  <section class="card" aria-labelledby="new-title">
-    <h2 id="new-title">Add new files</h2>
-    <label class="drop" id="drop" tabindex="0">
-      <input type="file" id="file" multiple accept="image/*,video/mp4,video/quicktime,video/*" hidden>
-      <div class="big" aria-hidden="true">+</div>
-      <strong>Choose photos or videos</strong>
-      <span class="muted">or drop them here</span>
-    </label>
-    <div class="queue" id="queue" aria-live="polite"></div>
-    <div class="fields">
-      <div>
-        <label class="field" for="aspect">Shape</label>
-        <select id="aspect">
-          <option value="auto">Automatic</option>
-          <option value="square">Square</option>
-          <option value="portrait">Portrait</option>
-          <option value="landscape">Landscape</option>
-          <option value="keep">Keep as it is</option>
-        </select>
-      </div>
-      <div>
-        <label class="field" for="caption-all">Caption for every file (optional)</label>
-        <input type="text" id="caption-all" maxlength="2200" placeholder="You can also write a caption under each file">
-      </div>
+<header class="bar">
+  <div class="bar-in">
+    <div class="mark" aria-hidden="true">IG</div>
+    <div class="title">Uploads<small>Photos and reels for your next post</small></div>
+    <div class="bar-end">
+      <span class="chip-keep" id="keepChip" title="Unposted files are removed after this time"><svg class="i" aria-hidden="true"><use href="#i-clock"/></svg><span><span class="long">Kept </span><span id="keepHours">48</span>&nbsp;h</span></span>
+      <button class="icon-btn" id="openSettings" type="button" aria-label="Retention settings"><svg class="i" aria-hidden="true"><use href="#i-gear"/></svg></button>
     </div>
-    <div class="actions">
-      <button class="btn primary" id="start" disabled>Upload</button>
-      <button class="btn ghost" id="clear" hidden>Clear finished</button>
-    </div>
-  </section>
+  </div>
+</header>
 
-  <section class="card" aria-labelledby="mine-title">
-    <div class="head">
-      <div>
-        <h2 id="mine-title">My uploads</h2>
-        <p class="muted" style="margin:4px 0 0">Waiting to be posted. Open a file to see it full size.</p>
-      </div>
-      <button class="btn ghost small" id="refresh">Refresh</button>
-    </div>
-    <div class="uploads" id="uploads"></div>
-    <p class="empty" id="empty">Nothing waiting yet. Files you upload appear here.</p>
-  </section>
+<div class="tabs">
+  <div class="seg" role="tablist" aria-label="Uploads">
+    <button type="button" role="tab" id="tabAdd" aria-selected="true" aria-controls="panelAdd"><svg class="i" aria-hidden="true"><use href="#i-up"/></svg>Add files</button>
+    <button type="button" role="tab" id="tabLib" aria-selected="false" aria-controls="panelLib"><svg class="i" aria-hidden="true"><use href="#i-img"/></svg>Library <span class="count" id="libCount">0</span></button>
+  </div>
+</div>
 
-  <section class="card" aria-labelledby="settings-title">
-    <details id="settings">
-      <summary><h2 id="settings-title">Settings</h2></summary>
-      <div class="inner">
-        <label class="field" for="hours">Keep files that are not posted for (hours)</label>
-        <div class="actions" style="margin-top:0">
-          <input type="number" id="hours" min="1" max="720" step="1" style="max-width:160px">
-          <button class="btn primary" id="save-hours">Save</button>
-          <button class="btn ghost" id="reset-hours">Back to 48 hours</button>
+<main>
+  <!-- ADD FILES -->
+  <section class="panel" id="panelAdd" role="tabpanel" aria-labelledby="tabAdd">
+    <div class="card pad">
+      <label class="drop" id="drop" tabindex="0">
+        <input type="file" id="file" multiple accept="image/*,video/mp4,video/quicktime,video/*" hidden>
+        <div class="big" aria-hidden="true"><svg class="i" style="width:24px;height:24px"><use href="#i-up"/></svg></div>
+        <strong>Choose photos or videos</strong>
+        <span>or drag them here. Each file uploads in parts, so large files are fine.</span>
+      </label>
+
+      <div class="queue" id="queue" aria-live="polite"></div>
+
+      <details class="opts" id="opts">
+        <summary>Photo settings</summary>
+        <div class="grid2">
+          <div>
+            <label class="f" for="aspect">Shape</label>
+            <select id="aspect">
+              <option value="keep">Original, no changes (default)</option>
+              <option value="auto">Fit Instagram's shapes (crop only if needed)</option>
+              <option value="square">Square 1:1 (resized)</option>
+              <option value="portrait">Portrait 4:5 (resized)</option>
+              <option value="landscape">Landscape 1.91:1 (resized)</option>
+            </select>
+            <p class="sub">Original keeps every pixel and the full frame. Nothing is cropped or resized.</p>
+          </div>
         </div>
-        <p class="muted" id="hours-note" style="margin-top:10px"></p>
+      </details>
+    </div>
+  </section>
+
+  <!-- LIBRARY -->
+  <section class="panel hidden" id="panelLib" role="tabpanel" aria-labelledby="tabLib">
+    <div class="toolbar">
+      <div class="search">
+        <svg class="i" aria-hidden="true"><use href="#i-search"/></svg>
+        <input type="search" id="search" placeholder="Search by name or caption" aria-label="Search uploads">
       </div>
-    </details>
+      <div class="chips" role="group" aria-label="Filter">
+        <button class="chip" type="button" data-f="all" aria-pressed="true">All</button>
+        <button class="chip" type="button" data-f="photo" aria-pressed="false">Photos</button>
+        <button class="chip" type="button" data-f="reel" aria-pressed="false">Reels</button>
+        <button class="icon-btn" id="refresh" type="button" aria-label="Refresh"><svg class="i" aria-hidden="true"><use href="#i-refresh"/></svg></button>
+      </div>
+    </div>
+    <div class="grid" id="grid"></div>
+    <div class="empty hidden" id="libEmpty">
+      <div class="art"><svg class="i" style="width:28px;height:28px"><use href="#i-img"/></svg></div>
+      <b id="emptyTitle">Nothing waiting yet</b>
+      <span id="emptyText">Files you upload appear here until you post them.</span>
+    </div>
   </section>
 </main>
 
-<div class="overlay" id="overlay">
-  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title"></div>
+<div class="dock" id="dock" role="region" aria-label="Upload">
+  <div class="dock-in">
+    <div class="dock-text"><b id="dockTitle">0 files ready</b><span id="dockSub"></span></div>
+    <button class="link" id="clear" type="button" hidden>Clear finished</button>
+    <button class="btn primary" id="start" type="button" disabled>Upload</button>
+  </div>
+</div>
+
+<div class="scrim" id="scrim" aria-hidden="true">
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle"></div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
-// The page is protected by the upload key: ?auth=..., kept in sessionStorage after the first visit.
+"use strict";
 const params = new URLSearchParams(location.search);
-const AUTH = params.get('auth') || sessionStorage.getItem('mcp_auth') || '';
-if (AUTH) sessionStorage.setItem('mcp_auth', AUTH);
-const H = { 'X-Auth-Key': AUTH };
+const AUTH = params.get("auth") || sessionStorage.getItem("mcp_auth") || "";
+if (AUTH) sessionStorage.setItem("mcp_auth", AUTH);
+const H = {"X-Auth-Key": AUTH};
 const $ = (id) => document.getElementById(id);
 const DEFAULT_HOURS = 48;
 
-// Small DOM helper. Text is always set with textContent, never as HTML.
 function el(tag, props, ...children) {
   const node = document.createElement(tag);
   for (const [key, value] of Object.entries(props || {})) {
     if (value === undefined || value === null || value === false) continue;
-    if (key === 'class') node.className = value;
-    else if (key === 'text') node.textContent = value;
-    else if (key.startsWith('on') && typeof value === 'function') node.addEventListener(key.slice(2), value);
-    else node.setAttribute(key, value === true ? '' : String(value));
+    if (key === "class") node.className = value;
+    else if (key === "text") node.textContent = value;
+    else if (key.startsWith("on") && typeof value === "function") node.addEventListener(key.slice(2), value);
+    else node.setAttribute(key, value === true ? "" : String(value));
   }
   for (const child of children.flat()) {
     if (child === null || child === undefined || child === false) continue;
@@ -248,127 +315,163 @@ function el(tag, props, ...children) {
   }
   return node;
 }
+const icon = (name) => {
+  const s = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  s.setAttribute("class", "i"); s.setAttribute("aria-hidden", "true");
+  const u = document.createElementNS("http://www.w3.org/2000/svg", "use");
+  u.setAttribute("href", "#i-" + name); s.appendChild(u); return s;
+};
 
 let toastTimer = 0;
-function toast(message) {
-  const t = $('toast');
-  t.textContent = message;
-  t.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 3400);
+function toast(message, tone) {
+  const t = $("toast");
+  t.textContent = message; t.className = "toast show" + (tone ? " " + tone : "");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 3200);
 }
 
 async function api(body) {
   const r = await fetch('/api/upload', {
-    method: 'POST', headers: { ...H, 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    method: "POST", headers: {...H, "Content-Type": "application/json"}, body: JSON.stringify(body),
   });
   const data = await r.json().catch(() => ({}));
   if (!r.ok) {
-    if (r.status === 401) throw new Error('This link has no valid key. Open the upload page from your dashboard.');
-    throw new Error(data.error || ('Something went wrong (' + r.status + ').'));
+    if (r.status === 401) throw new Error("This link has no valid key. Open the upload page from your dashboard.");
+    throw new Error(friendlyApi(data, r.status));
   }
   return data;
 }
 
-const mediaUrl = (id, what) => '/api/upload?' + what + '=' + encodeURIComponent(id) + '&auth=' + encodeURIComponent(AUTH);
-const isVideo = (file) => (file.type || '').startsWith('video/') || /\.(mp4|mov|m4v)$/i.test(file.name);
-const kindOf = (file) => (isVideo(file) ? 'reel' : 'photo');
-const isMedia = (file) => /^(image|video)\//.test(file.type) || /\.(jpe?g|png|webp|gif|heic|mp4|mov|m4v)$/i.test(file.name);
+function friendlyApi(data, status) {
+  if (data.error === "blob_not_configured") {
+    return "File storage is not connected to this project yet. Connect Vercel Blob in the project settings, then try again.";
+  }
+  if (data.error === "server_error") return "The server hit a problem: " + (data.detail || "unknown error") + ". Try again in a moment.";
+  return data.error || ("Something went wrong (" + status + ").");
+}
+function friendly(e) {
+  const msg = (e && e.message) || "";
+  if (/content.?type|not allowed/i.test(msg)) return "This file type is not supported. Use JPEG, PNG, WebP, GIF, MP4 or MOV.";
+  if (/too large|maximum/i.test(msg)) return "This file is too large to upload.";
+  return msg || "Upload failed. Try again.";
+}
 
+const mediaUrl = (id, what) => "/api/upload?" + what + "=" + encodeURIComponent(id) + "&auth=" + encodeURIComponent(AUTH);
+const isVideo = (file) => (file.type || "").startsWith("video/") || /\.(mp4|mov|m4v)$/i.test(file.name);
+const kindOf = (file) => (isVideo(file) ? "reel" : "photo");
+const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/gif", "video/mp4", "video/quicktime", "video/x-m4v"];
+const EXT_TYPES = {jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif",
+  mp4: "video/mp4", mov: "video/quicktime", m4v: "video/x-m4v"};
+function typeFor(file) {
+  if (ALLOWED.includes(file.type)) return file.type;
+  return EXT_TYPES[(file.name.split(".").pop() || "").toLowerCase()] || "";
+}
+const isMedia = (file) => !!typeFor(file);
 function fmtSize(bytes) {
-  if (!bytes) return '';
-  if (bytes < 1024 * 1024) return Math.max(1, Math.round(bytes / 1024)) + ' KB';
-  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  if (!bytes) return "";
+  if (bytes < 1024 * 1024) return Math.max(1, Math.round(bytes / 1024)) + " KB";
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }
-// Times from the server are in seconds.
 function fmtUntil(seconds) {
-  return new Date(seconds * 1000).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return new Date(seconds * 1000).toLocaleString([], {day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"});
 }
 
-// ----- choosing files and the queue -------------------------------------------------------
+/* ---------- tabs ---------- */
+function showTab(name) {
+  const add = name === "add";
+  $("panelAdd").classList.toggle("hidden", !add);
+  $("panelLib").classList.toggle("hidden", add);
+  $("tabAdd").setAttribute("aria-selected", String(add));
+  $("tabLib").setAttribute("aria-selected", String(!add));
+  if (!add) loadUploads();
+}
+$("tabAdd").addEventListener("click", () => showTab("add"));
+$("tabLib").addEventListener("click", () => showTab("lib"));
 
+/* ---------- queue ---------- */
 const queue = [];
+let busy = false;
+let batch = {total: 0, index: 0};
 
 function setState(item, state, text) {
   item.state = state;
   item.status.textContent = text;
-  item.row.classList.remove('ready', 'uploading', 'done', 'failed');
+  item.row.classList.remove("ready", "uploading", "done", "failed");
   item.row.classList.add(state);
-  updateButtons();
+  updateDock();
 }
-function setPct(item, pct) {
-  item.bar.firstChild.style.width = Math.max(0, Math.min(100, pct)) + '%';
-}
+function setPct(item, pct) { item.bar.firstChild.style.width = Math.max(0, Math.min(100, pct)) + "%"; }
 
 function renderItem(item) {
   const f = item.file;
   const thumb = isVideo(f)
-    ? el('div', { class: 'thumb', text: '▶', 'aria-hidden': 'true' })
-    : el('img', { class: 'thumb', src: item.preview, alt: '' });
-  const remove = el('button', {
-    class: 'btn ghost small', type: 'button', text: 'Remove',
-    onclick: () => removeItem(item),
-  });
-  const caption = el('input', {
-    type: 'text', maxlength: '2200', placeholder: 'Caption for this file (optional)', 'aria-label': 'Caption for ' + f.name,
-    oninput: (e) => { item.caption = e.target.value; },
-  });
-  item.bar = el('div', { class: 'bar' }, el('i'));
-  item.status = el('div', { class: 'status', text: 'Ready' });
-  item.row = el('div', { class: 'item ready' },
-    thumb,
-    el('div', null,
-      el('div', { class: 'row1' }, el('span', { class: 'name', text: f.name }),
-        el('span', { class: 'muted', text: fmtSize(f.size) }), remove),
-      item.bar, item.status, caption));
-  $('queue').append(item.row);
+    ? el("div", {class: "thumb", "aria-hidden": "true"}, icon("play"))
+    : el("img", {class: "thumb", src: item.preview, alt: ""});
+  const remove = el("button", {class: "link", type: "button", text: "Remove", onclick: () => removeItem(item)});
+  const caption = el("input", {type: "text", maxlength: "2200", placeholder: "Caption for this file (optional)",
+    "aria-label": "Caption for " + f.name, oninput: (e) => { item.caption = e.target.value; }});
+  item.bar = el("div", {class: "bar-track"}, el("i"));
+  item.status = el("div", {class: "status", text: "Ready to upload"});
+  item.row = el("div", {class: "qitem ready"}, thumb,
+    el("div", {class: "qmain"},
+      el("div", {class: "qrow"}, el("span", {class: "name", text: f.name}), el("span", {class: "meta", text: fmtSize(f.size)})),
+      item.bar, item.status, caption),
+    remove);
+  $("queue").append(item.row);
 }
 
 function removeItem(item) {
-  if (item.state === 'uploading') return;
-  item.row.classList.add('removing');
+  if (item.state === "uploading") return;
+  item.row.classList.add("removing");
   setTimeout(() => {
     item.row.remove();
     queue.splice(queue.indexOf(item), 1);
     if (item.preview) URL.revokeObjectURL(item.preview);
-    updateButtons();
-  }, 260);
+    updateDock();
+  }, 240);
 }
 
 function addFiles(files) {
   let skipped = 0;
   for (const file of files) {
     if (!isMedia(file)) { skipped += 1; continue; }
-    const item = { file, state: 'ready', caption: '', preview: isVideo(file) ? '' : URL.createObjectURL(file) };
+    const item = {file, state: "ready", caption: "", preview: isVideo(file) ? "" : URL.createObjectURL(file)};
     queue.push(item);
     renderItem(item);
   }
-  if (skipped) toast(skipped + (skipped === 1 ? ' file is' : ' files are') + ' not a photo or video and was skipped.');
-  updateButtons();
+  if (skipped) toast(skipped + (skipped === 1 ? " file was" : " files were") + " skipped. Use JPEG, PNG, WebP, GIF, MP4 or MOV (export HEIC photos as JPEG).", "bad");
+  updateDock();
 }
 
-function updateButtons() {
-  const ready = queue.some((i) => i.state === 'ready' || i.state === 'failed');
-  const finished = queue.some((i) => i.state === 'done' || i.state === 'failed');
-  $('start').disabled = !ready || busy;
-  $('clear').hidden = !finished || busy;
+function updateDock() {
+  const ready = queue.filter((i) => i.state === "ready" || i.state === "failed");
+  const finished = queue.filter((i) => i.state === "done" || i.state === "failed");
+  const bytes = ready.reduce((n, i) => n + i.file.size, 0);
+  if (busy) {
+    $("dockTitle").textContent = "Uploading " + batch.index + " of " + batch.total;
+    $("dockSub").textContent = "Keep this page open until it finishes.";
+  } else {
+    $("dockTitle").textContent = ready.length ? ready.length + (ready.length === 1 ? " file ready" : " files ready") : (queue.length ? "All done" : "No files selected");
+    $("dockSub").textContent = ready.length ? fmtSize(bytes) + " in total" : (queue.length ? "Uploaded files are in the Library." : "Choose photos or videos to begin.");
+  }
+  $("start").disabled = !ready.length || busy;
+  $("start").textContent = busy ? "Uploading..." : "Upload";
+  $("clear").hidden = !finished.length || busy;
+  $("dock").classList.toggle("show", queue.length > 0);
 }
 
-// ----- uploading -------------------------------------------------------------------------
-
-// A small JPEG preview (max 512 px). Photos use the canvas; videos use the first frame.
-// Failure is not fatal: the assistant can still work from the file.
+/* ---------- uploading ---------- */
+// A small JPEG preview (max 512 px). Failure is not fatal: the assistant can still work from the file.
 async function makeThumb(file) {
   const url = URL.createObjectURL(file);
   try {
     let source, w, h;
     if (isVideo(file)) {
       source = await new Promise((resolve, reject) => {
-        const v = document.createElement('video');
-        v.muted = true; v.playsInline = true; v.preload = 'auto';
+        const v = document.createElement("video");
+        v.muted = true; v.playsInline = true; v.preload = "auto";
         v.onloadeddata = () => { v.currentTime = Math.min(0.5, (v.duration || 1) / 2); };
         v.onseeked = () => resolve(v);
-        v.onerror = () => reject(new Error('video frame unreadable'));
+        v.onerror = () => reject(new Error("video frame unreadable"));
         v.src = url;
       });
       w = source.videoWidth; h = source.videoHeight;
@@ -376,10 +479,10 @@ async function makeThumb(file) {
       source = await createImageBitmap(file); w = source.width; h = source.height;
     }
     const scale = Math.min(1, 512 / Math.max(w, h));
-    const c = document.createElement('canvas');
+    const c = document.createElement("canvas");
     c.width = Math.max(1, Math.round(w * scale)); c.height = Math.max(1, Math.round(h * scale));
-    c.getContext('2d').drawImage(source, 0, 0, c.width, c.height);
-    return await new Promise((resolve) => c.toBlob(resolve, 'image/jpeg', 0.8));
+    c.getContext("2d").drawImage(source, 0, 0, c.width, c.height);
+    return await new Promise((resolve) => c.toBlob(resolve, "image/jpeg", 0.8));
   } catch (e) {
     return null;
   } finally {
@@ -387,233 +490,257 @@ async function makeThumb(file) {
   }
 }
 
-let busy = false;
-
 async function uploadItem(item) {
   const f = item.file;
   const kind = kindOf(f);
-  setState(item, 'uploading', 'Preparing…');
+  setState(item, "uploading", "Preparing...");
   setPct(item, 0);
-  // 1. Ask the server for a safe place in storage (no secret is sent to the browser).
-  const slot = await api({ action: 'begin', filename: f.name, size: f.size,
-                           content_type: f.type || 'application/octet-stream', kind });
-  // 2. Upload straight to storage with a short-lived token from /api/blob-token, with live progress.
-  setState(item, 'uploading', 'Uploading…');
-  const { upload } = await import('https://esm.sh/@vercel/blob@2.8.1/client');
+  const slot = await api({action: 'begin', filename: f.name, size: f.size,
+    content_type: typeFor(f), kind});
+  setState(item, "uploading", "Uploading...");
+  const {upload} = await import("/upload-client.js");
   const blob = await upload(slot.pathname, f, {
-    access: slot.access || 'private',
-    handleUploadUrl: slot.handle_upload_url || '/api/blob-token',
-    clientPayload: JSON.stringify({ key: AUTH, kind }),
-    contentType: f.type || undefined,
+    access: slot.access || "private",
+    handleUploadUrl: slot.handle_upload_url || "/api/blob-token",
+    clientPayload: JSON.stringify({key: AUTH, kind}),
+    contentType: typeFor(f),
     multipart: f.size > 20 * 1024 * 1024,
     onUploadProgress: (e) => {
+      if (item.state !== "uploading") return;
       setPct(item, e.percentage);
-      item.status.textContent = 'Uploading… ' + Math.round(e.percentage) + '%';
+      item.status.textContent = "Uploading... " + Math.round(e.percentage) + "%";
     },
   });
-  // 3. A preview image, so the assistant can see the file.
-  setState(item, 'uploading', 'Finishing…');
-  let thumbPathname = '';
+  setState(item, "uploading", "Finishing...");
+  let thumbPathname = "";
   const thumb = await makeThumb(f);
   if (thumb) {
     try {
-      const ts = await api({ action: 'begin', filename: 'thumb.jpg', size: thumb.size, content_type: 'image/jpeg', kind });
+      const ts = await api({action: 'begin', filename: "thumb.jpg", size: thumb.size, content_type: "image/jpeg", kind});
       const tb = await upload(ts.pathname, thumb, {
-        access: ts.access || 'private',
-        handleUploadUrl: ts.handle_upload_url || '/api/blob-token',
-        clientPayload: JSON.stringify({ key: AUTH, kind }),
-        contentType: 'image/jpeg',
+        access: ts.access || "private",
+        handleUploadUrl: ts.handle_upload_url || "/api/blob-token",
+        clientPayload: JSON.stringify({key: AUTH, kind}),
+        contentType: "image/jpeg",
       });
       thumbPathname = tb.pathname;
-    } catch (e) { thumbPathname = ''; }
+    } catch (e) { thumbPathname = ""; }
   }
-  // 4. Register the file with its caption and shape. The bytes never pass through the server.
-  const caption = (item.caption || '').trim() || $('caption-all').value.trim();
-  await api({ action: 'commit', filename: f.name, pathname: blob.pathname, url: blob.url, size: f.size,
-              content_type: f.type, kind, aspect: $('aspect').value, caption, thumb_pathname: thumbPathname });
+  const caption = (item.caption || "").trim();
+  await api({action: 'commit', filename: f.name, pathname: blob.pathname, url: blob.url, size: f.size,
+    content_type: typeFor(f), kind, aspect: $("aspect").value, caption, thumb_pathname: thumbPathname});
   setPct(item, 100);
-  setState(item, 'done', 'Uploaded');
+  setState(item, "done", "Uploaded");
 }
 
 async function startAll() {
   if (busy) return;
-  busy = true;
-  updateButtons();
-  const pending = queue.filter((i) => i.state === 'ready' || i.state === 'failed');
+  busy = true; updateDock();
+  const pending = queue.filter((i) => i.state === "ready" || i.state === "failed");
+  batch = {total: pending.length, index: 0};
   let ok = 0;
   for (const item of pending) {
-    try {
-      await uploadItem(item);
-      ok += 1;
-    } catch (e) {
-      setState(item, 'failed', e.message || 'Upload failed. Try again.');
-    }
+    batch.index += 1;
+    updateDock();
+    try { await uploadItem(item); ok += 1; }
+    catch (e) { setState(item, "failed", friendly(e)); }
   }
-  busy = false;
-  updateButtons();
-  if (ok) toast(ok === 1 ? 'Uploaded. It is in My uploads below.' : ok + ' files uploaded. They are in My uploads below.');
+  busy = false; updateDock();
+  if (ok) toast(ok === 1 ? "Uploaded. It is in your Library." : ok + " files uploaded. They are in your Library.", "ok");
   loadUploads();
 }
+$("start").addEventListener("click", startAll);
+$("clear").addEventListener("click", () => {
+  for (const item of queue.filter((i) => i.state === "done" || i.state === "failed")) {
+    item.row.remove();
+    if (item.preview) URL.revokeObjectURL(item.preview);
+  }
+  for (let i = queue.length - 1; i >= 0; i -= 1) {
+    if (queue[i].state === "done" || queue[i].state === "failed") queue.splice(i, 1);
+  }
+  updateDock();
+});
 
-// ----- my uploads -----------------------------------------------------------------------
+/* drop zone */
+const drop = $("drop");
+drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("file").click(); } });
+drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
+drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("over"); addFiles(e.dataTransfer.files); });
+$("file").addEventListener("change", (e) => { addFiles(e.target.files); e.target.value = ""; });
 
+/* ---------- library ---------- */
 let uploads = [];
+let filter = "all";
+let query = "";
 
 async function loadUploads() {
+  if (!AUTH) return;
+  $("grid").replaceChildren(...[0, 1, 2, 3].map(() => el("div", {class: "skel", style: "aspect-ratio:4/5"})));
+  $("libEmpty").classList.add("hidden");
   try {
-    const data = await api({ action: 'list' });
+    const data = await api({action: 'list'});
     uploads = data.uploads || [];
-    $('intro').textContent = 'Send photos and videos for your Instagram posts. Files that are not posted are removed after '
-      + data.retention_hours + ' hours.';
-    renderUploads();
+    $("keepHours").textContent = data.retention_hours;
+    renderLibrary();
   } catch (e) {
-    toast(e.message);
+    $("grid").replaceChildren();
+    showEmpty("Could not load your library", e.message);
+    toast(e.message, "bad");
   }
 }
 
-function renderUploads() {
-  const box = $('uploads');
-  box.replaceChildren(...uploads.map(tile));
-  $('empty').classList.toggle('show', uploads.length === 0);
+function visible() {
+  const q = query.trim().toLowerCase();
+  return uploads.filter((u) => (filter === "all" || u.kind === (filter === "reel" ? "reel" : "photo"))
+    && (!q || (u.title || u.filename || "").toLowerCase().includes(q) || (u.caption || "").toLowerCase().includes(q)));
+}
+
+function showEmpty(title, text) {
+  $("emptyTitle").textContent = title;
+  $("emptyText").textContent = text;
+  $("libEmpty").classList.remove("hidden");
+}
+
+function renderLibrary() {
+  $("libCount").textContent = uploads.length;
+  const list = visible();
+  $("grid").replaceChildren(...list.map(tile));
+  if (!uploads.length) showEmpty("Nothing waiting yet", "Files you upload appear here until you post them.");
+  else if (!list.length) showEmpty("No matches", "Try another search or filter.");
+  else $("libEmpty").classList.add("hidden");
 }
 
 function tile(u) {
-  const pic = el('div', { class: 'pic' });
-  if (u.has_thumb) pic.append(el('img', { src: mediaUrl(u.id, 'thumb'), alt: '', loading: 'lazy' }));
-  else pic.append(el('span', { text: u.kind === 'reel' ? '▶' : '🖼', 'aria-hidden': 'true' }));
-  return el('article', { class: 'tile', 'data-id': u.id },
+  const pic = el("div", {class: "pic"});
+  if (u.has_thumb) pic.append(el("img", {src: mediaUrl(u.id, 'thumb'), alt: "", loading: "lazy"}));
+  else pic.append(el("div", {class: "thumb", "aria-hidden": "true", style: "width:44px;height:44px"}, icon(u.kind === "reel" ? "play" : "img")));
+  pic.append(el("span", {class: "kind", text: u.kind === "reel" ? "REEL" : "PHOTO"}));
+  const btn = (label, name, fn, extra) => el("button", {type: "button", class: extra || "", title: label, "aria-label": label, onclick: fn}, icon(name));
+  return el("article", {class: "tile", "data-id": u.id},
     pic,
-    el('div', { class: 'tbody' },
-      el('div', { class: 'tname', text: u.title || u.filename }),
-      el('div', { class: 'tmeta', text: (u.kind === 'reel' ? 'Video' : 'Photo') + ' · ' + fmtSize(u.size) }),
-      el('div', { class: 'tmeta', text: 'Keep until ' + fmtUntil(u.expires_at) })),
-    el('div', { class: 'tacts' },
-      el('button', { class: 'btn ghost small', type: 'button', text: 'View', onclick: () => openView(u) }),
-      el('button', { class: 'btn ghost small', type: 'button', text: 'Rename', onclick: () => openRename(u) }),
-      el('button', { class: 'btn danger small', type: 'button', text: 'Delete', onclick: () => openDelete(u) })));
+    el("div", {class: "tb"},
+      el("div", {class: "tn", text: u.title || u.filename}),
+      el("div", {class: "tm", text: fmtSize(u.size) + " · keep until " + fmtUntil(u.expires_at)})),
+    el("div", {class: "ta"},
+      btn("View", "eye", () => openView(u)),
+      btn("Rename", "edit", () => openRename(u)),
+      btn("Delete", "trash", () => openDelete(u), "del")));
 }
 
-// ----- dialogs ----------------------------------------------------------------------------
+document.querySelectorAll(".chip").forEach((chip) => chip.addEventListener("click", () => {
+  filter = chip.dataset.f;
+  document.querySelectorAll(".chip").forEach((c) => c.setAttribute("aria-pressed", String(c === chip)));
+  renderLibrary();
+}));
+$("search").addEventListener("input", (e) => { query = e.target.value; renderLibrary(); });
+$("refresh").addEventListener("click", loadUploads);
 
+/* ---------- sheets ---------- */
 function openSheet(children) {
-  $('sheet').replaceChildren(...children);
-  $('overlay').classList.add('open');
-  const first = $('sheet').querySelector('input, button');
+  $("sheet").replaceChildren(...children);
+  $("scrim").classList.add("open");
+  $("scrim").setAttribute("aria-hidden", "false");
+  const first = $("sheet").querySelector("input, button");
   if (first) setTimeout(() => first.focus(), 60);
 }
 function closeSheet() {
-  $('overlay').classList.remove('open');
+  $("scrim").classList.remove("open");
+  $("scrim").setAttribute("aria-hidden", "true");
 }
-$('overlay').addEventListener('click', (e) => { if (e.target === $('overlay')) closeSheet(); });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSheet(); });
+$("scrim").addEventListener("click", (e) => { if (e.target === $("scrim")) closeSheet(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeSheet(); });
 
 function openView(u) {
-  const media = u.kind === 'reel'
-    ? el('video', { src: mediaUrl(u.id, 'file'), controls: true, playsinline: true, preload: 'metadata' })
-    : el('img', { src: mediaUrl(u.id, 'file'), alt: u.title || u.filename });
-  const fallback = el('p', { class: 'muted', text: 'This file is too big to open here. Its preview is shown instead.' });
-  const preview = u.has_thumb ? el('img', { src: mediaUrl(u.id, 'thumb'), alt: '' }) : null;
-  media.addEventListener('error', () => {
-    media.replaceWith(...[fallback, preview].filter(Boolean));
-  });
+  const media = u.kind === "reel"
+    ? el("video", {src: mediaUrl(u.id, 'file'), controls: true, playsinline: true, preload: "metadata"})
+    : el("img", {src: mediaUrl(u.id, 'file'), alt: u.title || u.filename});
+  const preview = u.has_thumb ? el("img", {src: mediaUrl(u.id, 'thumb'), alt: ""}) : null;
+  const note = el("div", {class: "notice warn", text: "This file is too large to open here, so its preview is shown."});
+  media.addEventListener("error", () => { media.replaceWith(...[preview, note].filter(Boolean)); });
   openSheet([
-    el('h3', { id: 'sheet-title', text: u.title || u.filename }),
+    el("h3", {id: "sheetTitle", text: u.title || u.filename}),
+    el("div", {class: "meta", text: (u.kind === "reel" ? "Reel" : "Photo") + " · " + fmtSize(u.size)}),
     media,
-    u.caption ? el('p', { class: 'muted', text: 'Caption: ' + u.caption, style: 'margin-top:12px' }) : null,
-    el('div', { class: 'actions' }, el('button', { class: 'btn ghost', type: 'button', text: 'Close', onclick: closeSheet })),
+    u.caption ? el("p", {class: "sub", text: "Caption: " + u.caption}) : null,
+    el("div", {class: "row"}, el("button", {class: "btn", type: "button", text: "Close", onclick: closeSheet})),
   ]);
 }
 
 function openRename(u) {
-  const input = el('input', { type: 'text', maxlength: '120', value: u.title || u.filename, 'aria-label': 'New name' });
-  const save = el('button', { class: 'btn primary', type: 'button', text: 'Save', onclick: async () => {
+  const input = el("input", {type: "text", maxlength: "120", value: u.title || u.filename, "aria-label": "New name"});
+  const save = el("button", {class: "btn primary", type: "button", text: "Save", onclick: async () => {
     try {
-      await api({ action: 'rename', id: u.id, title: input.value });
-      closeSheet();
-      toast('Renamed.');
-      loadUploads();
-    } catch (e) { toast(e.message); }
-  } });
+      await api({action: 'rename', id: u.id, title: input.value});
+      closeSheet(); toast("Renamed.", "ok"); loadUploads();
+    } catch (e) { toast(e.message, "bad"); }
+  }});
   openSheet([
-    el('h3', { id: 'sheet-title', text: 'Rename' }),
-    el('p', { class: 'muted', text: 'This only changes the name shown here. The file itself stays the same.' }),
+    el("h3", {id: "sheetTitle", text: "Rename"}),
+    el("p", {class: "sub", text: "This only changes the name shown here. The file itself stays the same."}),
     input,
-    el('div', { class: 'actions' }, save, el('button', { class: 'btn ghost', type: 'button', text: 'Cancel', onclick: closeSheet })),
+    el("div", {class: "row"}, el("button", {class: "btn", type: "button", text: "Cancel", onclick: closeSheet}), save),
   ]);
   input.select();
 }
 
 function openDelete(u) {
-  const confirm = el('button', { class: 'btn danger', type: 'button', text: 'Delete', onclick: async () => {
+  const confirm = el("button", {class: "btn danger solid", type: "button", text: "Delete", onclick: async () => {
     try {
-      await api({ action: 'delete', id: u.id });
-      closeSheet();
-      toast('Deleted.');
-      loadUploads();
-    } catch (e) { toast(e.message); }
-  } });
+      await api({action: 'delete', id: u.id});
+      closeSheet(); toast("Deleted.", "ok"); loadUploads();
+    } catch (e) { toast(e.message, "bad"); }
+  }});
   openSheet([
-    el('h3', { id: 'sheet-title', text: 'Delete this file?' }),
-    el('p', { class: 'muted', text: (u.title || u.filename) + ' will be removed from storage. This cannot be undone.' }),
-    el('div', { class: 'actions' }, confirm, el('button', { class: 'btn ghost', type: 'button', text: 'Keep it', onclick: closeSheet })),
+    el("h3", {id: "sheetTitle", text: "Delete this file?"}),
+    el("p", {class: "sub", text: (u.title || u.filename) + " will be removed from storage. This cannot be undone."}),
+    el("div", {class: "row"}, el("button", {class: "btn", type: "button", text: "Keep it", onclick: closeSheet}), confirm),
   ]);
 }
 
-// ----- settings ---------------------------------------------------------------------------
-
-async function loadSettings() {
-  try {
-    const d = await api({ action: 'settings' });
-    $('hours').value = d.retention_hours;
-    $('hours-note').textContent = 'Right now files stay for ' + d.retention_hours + ' hours. The default is ' + d.default_hours + '.';
-  } catch (e) {
-    $('hours-note').textContent = e.message;
-  }
+/* ---------- retention settings ---------- */
+const PRESETS = [[24, "24 hours"], [48, "2 days"], [72, "3 days"], [168, "1 week"], [720, "30 days"]];
+async function openSettings() {
+  let current = DEFAULT_HOURS;
+  try { current = (await api({action: 'settings'})).retention_hours; } catch (e) { /* show the default */ }
+  const input = el("input", {type: "number", min: "1", max: "720", step: "1", inputmode: "numeric", value: current, "aria-label": "Hours"});
+  const note = el("div", {class: "notice", style: "display:none"});
+  const show = (msg, tone) => { note.className = "notice " + tone; note.textContent = msg; note.style.display = "block"; };
+  const save = async (hours) => {
+    try {
+      const d = await api({action: 'settings_save', retention_hours: hours});
+      input.value = d.retention_hours;
+      $("keepHours").textContent = d.retention_hours;
+      show("Saved. Unposted files are kept for " + d.retention_hours + " hours.", "ok");
+      toast("Saved.", "ok");
+    } catch (e) { show(e.message, "bad"); }
+  };
+  const presets = el("div", {class: "presets"}, PRESETS.map(([h, label]) =>
+    el("button", {class: "chip", type: "button", "aria-pressed": String(h === Number(current)), text: label,
+      onclick: () => { input.value = h; save(h); }})));
+  openSheet([
+    el("h3", {id: "sheetTitle", text: "Keep unposted files"}),
+    el("p", {class: "sub", text: "Files you upload but do not post are removed automatically after this long."}),
+    presets,
+    el("label", {class: "f", for: "hoursIn", text: "Or enter hours (1 to 720)"}),
+    Object.assign(input, {id: "hoursIn"}),
+    note,
+    el("div", {class: "row"},
+      el("button", {class: "btn", type: "button", text: "Back to 48 hours", onclick: () => save(DEFAULT_HOURS)}),
+      el("button", {class: "btn primary", type: "button", text: "Save", onclick: () => save(Number(input.value))})),
+  ]);
 }
+$("openSettings").addEventListener("click", openSettings);
 
-async function saveHours(value) {
-  try {
-    const d = await api({ action: 'settings_save', retention_hours: value });
-    $('hours').value = d.retention_hours;
-    $('hours-note').textContent = 'Saved. Files now stay for ' + d.retention_hours + ' hours.';
-    toast('Saved.');
-    loadUploads();
-  } catch (e) {
-    $('hours-note').textContent = e.message;
-  }
-}
-
-$('save-hours').addEventListener('click', () => saveHours(Number($('hours').value)));
-$('reset-hours').addEventListener('click', () => { $('hours').value = DEFAULT_HOURS; saveHours(DEFAULT_HOURS); });
-
-// ----- wiring -------------------------------------------------------------------------------
-
-const drop = $('drop');
-drop.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('file').click(); } });
-drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
-drop.addEventListener('dragleave', () => drop.classList.remove('over'));
-drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('over'); addFiles(e.dataTransfer.files); });
-$('file').addEventListener('change', (e) => { addFiles(e.target.files); e.target.value = ''; });
-$('start').addEventListener('click', startAll);
-$('clear').addEventListener('click', () => {
-  for (const item of queue.filter((i) => i.state === 'done' || i.state === 'failed')) {
-    item.row.remove();
-    if (item.preview) URL.revokeObjectURL(item.preview);
-  }
-  for (let i = queue.length - 1; i >= 0; i -= 1) {
-    if (queue[i].state === 'done' || queue[i].state === 'failed') queue.splice(i, 1);
-  }
-  updateButtons();
-});
-$('refresh').addEventListener('click', loadUploads);
-
+/* ---------- start ---------- */
 if (!AUTH) {
-  $('intro').textContent = 'This page needs its key. Open it from your dashboard.';
-  $('start').disabled = true;
+  $("dockSub").textContent = "This page needs its key. Open it from your dashboard.";
+  $("start").disabled = true;
+  $("tabLib").disabled = true;
 } else {
-  loadSettings();
-  loadUploads();
+  api({action: 'settings'}).then((d) => { $("keepHours").textContent = d.retention_hours; }).catch(() => {});
 }
+updateDock();
 </script>
 </body>
 </html>
