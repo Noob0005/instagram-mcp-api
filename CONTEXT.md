@@ -150,3 +150,7 @@ Other: uploads index read-modify-write race; Termux pydantic fix unconfirmed; ph
 - 2026-10-19: Carousel of staged photos via post_upload_album (mcp_server.py, _vendor synced). 168 tests pass.
 - 2026-10-19: Dashboard split into pages (Home, Connect, Environment, Instagram, Tests). 168 tests pass.
 - 2026-10-20: Extension autosync on instagram.com (tests/test_extension_autosync.py runs the real background.js in Node). 178 tests pass.
+- 2026-10-28: Upload retention: 48 h default, saved in Blob (upload_settings.py), cron + purge use it; upload API actions settings / settings_save. Fixed shared-list bug in local upload index defaults. 200 tests pass.
+- 2026-10-28: Upload page rebuilt (per-file progress, My uploads with view/rename/delete, retention settings). API: list, rename, delete, GET thumb/file reads. 214 tests pass.
+- 2026-10-28: upload_from_url MCP tool (instagram_mcp_server/url_upload.py): server downloads a link into Blob, returns id + preview image; falls back to page/thumbnail preview when the file is blocked. Public-address check on every hop. 236 tests pass.
+- 2026-10-28: Dashboard redesigned for non-technical use (Home, Connect, Instagram, Settings, Advanced; phone bottom bar, desktop tabs; light/dark). New admin routes upload_settings GET/POST. 236 tests pass.

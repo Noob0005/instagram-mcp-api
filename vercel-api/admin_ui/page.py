@@ -1,325 +1,393 @@
-"""The dashboard page. Kept as a Python string so it is always bundled with the function."""
+"""The dashboard page. Kept as a Python string so it is always bundled with the function.
+
+Plain, friendly layout: Home, Connect, Instagram, Settings and Advanced. Technical details
+(environment variables, endpoint checks) live under Advanced only.
+"""
 
 DASHBOARD_HTML = r"""<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<title>Archive Terminal</title>
+<meta name="color-scheme" content="light dark">
+<title>Instagram MCP</title>
 <style>
 :root{
-  --bg:#020503; --line:#15351d; --faint:#24502f; --dim:#3fa15a;
-  --fg:#7dff9e;            /* phosphor green: body text */
-  --cyan:#5ef0ff;          /* headings, warnings, links */
-  --red:#ff5c5c;           /* danger, missing */
-  --white:#eefaf1;         /* values, emphasis */
-  --mono:ui-monospace,"Cascadia Mono","SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  --bg:#f5f6f8; --card:#ffffff; --ink:#1c2026; --muted:#6b7280; --line:#e3e6eb; --soft:#f1f3f6;
+  --accent:#e1306c; --accent-ink:#ffffff;
+  --ok:#15803d; --ok-bg:#e8f7ee; --warn:#b45309; --warn-bg:#fdf3e4; --bad:#b91c1c; --bad-bg:#fdecec;
+  --radius:16px; --shadow:0 1px 2px rgba(16,24,40,.06),0 6px 20px rgba(16,24,40,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1115; --card:#171a21; --ink:#eef0f3; --muted:#9aa3b2; --line:#2a303b; --soft:#1d222b;
+    --accent:#ff5a8f; --accent-ink:#130a0f;
+    --ok:#4ade80; --ok-bg:#133222; --warn:#fbbf24; --warn-bg:#33270f; --bad:#f87171; --bad-bg:#3a1717;
+    --shadow:none;
+  }
 }
 *{box-sizing:border-box}
-html{background:var(--bg); -webkit-text-size-adjust:100%}
-body{
-  margin:0; min-height:100vh; color:var(--fg); font:14px/1.55 var(--mono); overflow-x:hidden;
-  background:
-    radial-gradient(ellipse at 50% -15%, rgba(94,240,255,.10), transparent 55%),
-    radial-gradient(ellipse at 50% 120%, rgba(125,255,158,.08), transparent 55%),
-    var(--bg);
-  text-shadow:0 0 6px rgba(125,255,158,.35);
-}
-body::before{ /* scanlines */
-  content:""; position:fixed; inset:0; pointer-events:none; z-index:50;
-  background:repeating-linear-gradient(0deg, rgba(0,0,0,.28) 0 1px, transparent 1px 3px);
-}
-body::after{ /* curved-glass vignette */
-  content:""; position:fixed; inset:0; pointer-events:none; z-index:49;
-  background:radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,.62) 100%);
-  box-shadow:inset 0 0 90px rgba(0,0,0,.9);
-}
-.roll{ /* slow rolling refresh bar, like an old monitor */
-  position:fixed; left:0; right:0; height:120px; top:-120px; pointer-events:none; z-index:51;
-  background:linear-gradient(180deg, transparent, rgba(125,255,158,.05), transparent);
-  animation:roll 7s linear infinite;
-}
-@keyframes roll{to{transform:translateY(calc(100vh + 240px))}}
-main{max-width:1000px; margin:0 auto; padding:20px 16px 72px; position:relative; z-index:1;
-  animation:flicker 6s steps(1) infinite}
-@keyframes flicker{0%,92%,100%{opacity:1} 93%{opacity:.94} 95%{opacity:.99}}
-header.top{display:flex; flex-wrap:wrap; justify-content:space-between; gap:6px 16px;
-  align-items:baseline; border-bottom:1px solid var(--line); padding-bottom:12px; margin-bottom:16px}
-.brand{font-size:clamp(14px,3.6vw,18px); letter-spacing:.2em; font-weight:700; color:var(--white);
-  text-shadow:0 0 10px rgba(94,240,255,.55)}
-.brand b{color:var(--cyan)}
-.sys{color:var(--dim); font-size:12px; letter-spacing:.08em}
-.cursor{display:inline-block; width:.6em; height:1.05em; background:var(--cyan);
-  vertical-align:-.15em; margin-left:.2em; animation:blink 1.1s steps(1) infinite;
-  box-shadow:0 0 8px var(--cyan)}
-@keyframes blink{50%{opacity:0}}
-
-/* navigation: one row of sections, log out on the right */
-.nav{display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:0 0 18px; padding-bottom:12px;
-  border-bottom:1px solid var(--line)}
-.nav a{padding:9px 12px; min-height:40px; display:inline-flex; align-items:center; color:var(--dim);
-  text-decoration:none; letter-spacing:.14em; font-size:12px; border:1px solid transparent}
-.nav a:hover,.nav a:focus-visible{color:var(--cyan); border-color:var(--faint); outline:none}
-.nav a.on{color:#021004; background:var(--cyan); border-color:var(--cyan); text-shadow:none}
-.nav .spacer{flex:1 1 auto}
-
-/* pages: only one is shown at a time */
-.page{animation:fade .25s ease-out}
-@keyframes fade{from{opacity:0} to{opacity:1}}
-
-.panel{position:relative; border:1px solid var(--line); margin:0 0 16px; padding:20px 16px 16px;
-  background:linear-gradient(180deg, rgba(12,28,15,.8), rgba(5,11,6,.92));
-  box-shadow:0 0 0 1px rgba(0,0,0,.6), 0 0 24px rgba(125,255,158,.05)}
-.panel::before,.panel::after{content:""; position:absolute; width:14px; height:14px;
-  border:2px solid var(--cyan); opacity:.8}
-.panel::before{top:-1px; left:-1px; border-right:0; border-bottom:0}
-.panel::after{bottom:-1px; right:-1px; border-left:0; border-top:0}
-.panel > h2{margin:0 0 12px; font-size:12px; letter-spacing:.22em; color:var(--cyan); font-weight:700;
-  text-shadow:0 0 8px rgba(94,240,255,.45)}
-.panel > h2 em{color:var(--dim); font-style:normal; margin-right:.6em}
-.hint{color:var(--dim); font-size:12px; margin:6px 0 0}
-.hint a,.hint a:visited{color:var(--cyan)}
-.banner{padding:10px 12px; border:1px solid; margin:0 0 14px; font-size:13px; letter-spacing:.03em}
-.banner.good{border-color:var(--faint); color:var(--fg)}
-.banner.bad{border-color:var(--red); color:var(--red); background:rgba(255,92,92,.08)}
-.banner.warn{border-color:var(--cyan); color:var(--cyan); background:rgba(94,240,255,.06)}
-.kv{display:grid; grid-template-columns:max-content minmax(0,1fr); gap:8px 16px; margin:12px 0 0; font-size:13px}
-.kv dt{color:var(--cyan); letter-spacing:.14em; font-size:11px; padding-top:2px}
-.kv dd{margin:0; color:var(--white); overflow-wrap:anywhere}
-.btns{margin-top:12px}
-
-/* home: overview plus one card per section */
-.cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px}
-.card{display:flex; flex-direction:column; gap:6px; padding:16px; min-height:132px; text-decoration:none;
-  color:var(--fg); border:1px solid var(--line); background:rgba(5,11,6,.85)}
-.card:hover,.card:focus-visible{border-color:var(--cyan); outline:none;
-  box-shadow:0 0 18px rgba(94,240,255,.12)}
-.card-t{color:var(--cyan); letter-spacing:.2em; font-weight:700; font-size:12px}
-.card-d{color:var(--dim); font-size:12px}
-.card-s{margin-top:auto; color:var(--white); font-size:13px; padding-top:10px; border-top:1px dashed var(--faint)}
-
-/* environment groups (collapsible) */
-details > summary{cursor:pointer; list-style:none; color:var(--cyan); letter-spacing:.22em;
-  font-size:12px; font-weight:700; text-shadow:0 0 8px rgba(94,240,255,.45); padding:2px 0 4px}
-details > summary::-webkit-details-marker{display:none}
-details > summary::before{content:"\25B8  "; color:var(--dim)}
-details[open] > summary::before{content:"\25BE  "}
-details.group{border-top:1px dashed var(--faint); margin-top:14px; padding-top:4px}
-details.group > summary{color:var(--white); letter-spacing:.14em; font-size:11px; font-weight:400;
-  text-shadow:none; padding:8px 0}
-details.group[open] > summary{margin-bottom:4px}
-.row{display:block; padding:12px 0; border-top:1px dashed var(--faint)}
-.rowhead{display:flex; justify-content:space-between; align-items:baseline; gap:4px 12px; flex-wrap:wrap}
-.row .name{overflow-wrap:anywhere; color:var(--white)}
-.row .desc{color:var(--dim); font-size:12px; margin-top:4px}
-.row .note{color:var(--cyan); font-size:12px; margin-top:2px}
-.row .box{margin-top:10px}
-.acts{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px}
-.genout{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:8px; width:100%}
-.genout code{word-break:break-all}
-.genout .hint{width:100%; margin:0}
-.tag{font-weight:700; letter-spacing:.06em; white-space:nowrap}
-.tag.ok{color:var(--fg)} .tag.unset{color:var(--faint)}
-.tag.missing,.tag.danger{color:var(--red)} .tag.invalid,.tag.weak{color:var(--white); background:rgba(94,240,255,.15); padding:0 4px}
-.tag.danger{animation:blink 1.4s steps(1) infinite}
-
-code,.box{font-family:var(--mono); background:#010301; border:1px solid var(--line);
-  padding:8px 10px; word-break:break-all; color:var(--cyan); text-shadow:none}
-button{font:inherit; cursor:pointer; color:var(--fg); background:transparent;
-  border:1px solid var(--fg); padding:8px 14px; letter-spacing:.1em; font-size:12px;
-  text-shadow:inherit; min-height:40px; touch-action:manipulation}
-button:hover,button:focus-visible{background:var(--fg); color:#021004; outline:none; text-shadow:none}
-button.alt{border-color:var(--cyan); color:var(--cyan)}
-button.alt:hover,button.alt:focus-visible{background:var(--cyan); color:#021004}
-button:disabled{opacity:.4; cursor:default}
-button.on{background:var(--cyan); border-color:var(--cyan); color:#021004; text-shadow:none}
-.btn{display:inline-flex; align-items:center; justify-content:center; min-height:44px; padding:0 16px;
-  border:1px solid var(--cyan); color:var(--cyan); text-decoration:none; letter-spacing:.1em;
-  font-size:12px; text-shadow:none}
-.btn:hover,.btn:focus-visible{background:var(--cyan); color:#021004; outline:none}
-input{font:inherit; color:var(--white); background:#010301; border:1px solid var(--line);
-  padding:9px 10px; width:100%; min-height:42px; text-shadow:none; font-size:16px}
-input:focus{outline:1px solid var(--cyan); border-color:var(--cyan)}
-label{display:block; font-size:11px; letter-spacing:.16em; color:var(--cyan); margin:12px 0 4px}
-.line{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
-.line .box{flex:1 1 260px}
-.tabs{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:6px}
-.log{background:#010301; border:1px solid var(--line); padding:10px; margin:12px 0 0;
-  min-height:72px; max-height:280px; overflow:auto; white-space:pre-wrap; word-break:break-word;
-  font-size:12.5px; text-shadow:none}
-.log .ok{color:var(--fg)} .log .bad{color:var(--red)} .log .warn{color:var(--cyan)}
-.log .t{color:var(--faint)}
-.center{max-width:460px; width:100%; margin:6vh auto 0}
-.err{color:var(--red); min-height:1.4em; margin:10px 0 0; font-size:13px}
+html{background:var(--bg)}
+body{margin:0; min-height:100vh; background:var(--bg); color:var(--ink);
+  font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; -webkit-text-size-adjust:100%}
 .hidden{display:none !important}
+.wrap{max-width:1040px; margin:0 auto; padding:18px 16px 40px}
 
-@media (max-width:620px){
-  main{padding:14px 12px 56px}
-  .panel{padding:18px 12px 14px}
-  .nav a{padding:8px 10px; font-size:11px}
-  .nav .spacer{display:none}
-  .nav button{width:100%}
-  .line > button, .line > input, .line > .btn{width:100%}
-  .genout > button{width:100%}
-  .acts > button{flex:1 1 140px}
-  .row .box{font-size:12px}
-  .log{max-height:45vh}
-  .card{min-height:0}
+/* header */
+.top{position:sticky; top:0; z-index:20; background:var(--card); border-bottom:1px solid var(--line)}
+.top-in{max-width:1040px; margin:0 auto; padding:12px 16px; display:flex; align-items:center; gap:12px}
+.logo{width:36px; height:36px; border-radius:11px; background:var(--accent); color:var(--accent-ink);
+  display:grid; place-items:center; font-weight:800; flex:0 0 auto}
+.brand{font-weight:700; font-size:1.05rem; line-height:1.2; white-space:nowrap}
+.brand small{display:block; font-weight:400; color:var(--muted); font-size:.82rem}
+.top-actions{margin-left:auto; display:flex; gap:8px; align-items:center}
+.top-actions .btn{white-space:nowrap}
+
+/* navigation: a row under the header on desktop, a bottom bar on phones */
+.tabs{max-width:1040px; margin:0 auto; padding:6px 16px 0; display:flex; gap:4px; border-bottom:1px solid var(--line)}
+.tab{display:flex; align-items:center; gap:8px; padding:10px 12px; color:var(--muted); text-decoration:none;
+  border-radius:10px 10px 0 0; font-weight:600; font-size:.95rem; position:relative;
+  transition:color .2s ease, background .2s ease}
+.tab:hover{color:var(--ink); background:var(--soft)}
+.tab.on{color:var(--accent)}
+.tab.on::after{content:""; position:absolute; left:10px; right:10px; bottom:-1px; height:3px; border-radius:3px; background:var(--accent)}
+.ico{width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; flex:0 0 auto}
+
+/* views and pages: fade and rise in when shown */
+.view,.page{animation:rise .32s ease both}
+@keyframes rise{from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none}}
+
+.card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow);
+  padding:20px; margin:0 0 14px; transition:box-shadow .25s ease}
+.card h2{font-size:1.08rem; margin:0 0 6px}
+.card > p:first-of-type{margin-top:0}
+.muted{color:var(--muted)}
+.small{font-size:.88rem}
+.center{max-width:440px; margin:7vh auto 0}
+.head{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap}
+
+.btn{appearance:none; border:1px solid var(--line); background:var(--soft); color:var(--ink); border-radius:12px;
+  padding:10px 16px; min-height:44px; font:inherit; font-weight:600; cursor:pointer; text-decoration:none;
+  display:inline-flex; align-items:center; justify-content:center; gap:8px; touch-action:manipulation;
+  transition:transform .15s ease, background .2s ease, opacity .2s ease}
+.btn:hover{transform:translateY(-1px)}
+.btn:active{transform:scale(.98)}
+.btn.primary{background:var(--accent); border-color:var(--accent); color:var(--accent-ink)}
+.btn.ghost{background:transparent}
+.btn.small{min-height:36px; padding:6px 12px; font-size:.9rem}
+.btn.big{width:100%; min-height:58px; font-size:1.1rem; border-radius:14px}
+.btn:disabled{opacity:.5; cursor:default; transform:none}
+.btn:focus-visible,.tab:focus-visible,.tile:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+.row{display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; align-items:center}
+.row > .grow{flex:1 1 220px}
+
+label{display:block; font-weight:600; font-size:.92rem; margin:14px 0 6px}
+input{width:100%; min-height:44px; padding:10px 12px; border-radius:12px; border:1px solid var(--line);
+  background:var(--bg); color:var(--ink); font:inherit; font-size:16px; transition:border-color .2s ease}
+input:focus{outline:none; border-color:var(--accent)}
+
+.pill{display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; font-size:.85rem;
+  font-weight:600; background:var(--soft); color:var(--muted); white-space:nowrap}
+.pill.ok{background:var(--ok-bg); color:var(--ok)}
+.pill.warn{background:var(--warn-bg); color:var(--warn)}
+.pill.bad{background:var(--bad-bg); color:var(--bad)}
+
+.banner{padding:12px 14px; border-radius:12px; margin:0 0 12px; font-size:.95rem}
+.banner.good{background:var(--ok-bg); color:var(--ok)}
+.banner.warn{background:var(--warn-bg); color:var(--warn)}
+.banner.bad{background:var(--bad-bg); color:var(--bad)}
+
+/* home */
+.hero h1{font-size:1.45rem; margin:0 0 6px; line-height:1.25}
+.tiles{display:grid; gap:12px; grid-template-columns:1fr; margin-top:14px}
+@media (min-width:720px){ .tiles{grid-template-columns:repeat(3,1fr)} }
+.tile{display:block; width:100%; text-align:left; background:var(--card); color:var(--ink); text-decoration:none;
+  border:1px solid var(--line); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow);
+  transition:transform .2s ease, box-shadow .2s ease, border-color .2s ease}
+.tile:hover{transform:translateY(-2px); border-color:var(--accent)}
+.tile b{display:block; margin-bottom:2px}
+.tile .muted{font-size:.9rem}
+.tile .pill{margin-top:10px}
+ol.steps{margin:8px 0 0; padding-left:22px}
+ol.steps li{margin:6px 0}
+
+/* connect, instagram */
+.addr{font-family:ui-monospace,Menlo,Consolas,monospace; font-size:.9rem; background:var(--bg); border:1px dashed var(--line);
+  border-radius:12px; padding:12px; margin-top:12px; min-height:48px; word-break:break-all}
+.seg{display:inline-flex; gap:4px; padding:4px; background:var(--soft); border-radius:12px; margin-top:12px; flex-wrap:wrap}
+.seg button{appearance:none; border:0; background:transparent; color:var(--muted); font:inherit; font-weight:600;
+  padding:8px 14px; border-radius:9px; cursor:pointer; min-height:38px; transition:background .2s ease, color .2s ease}
+.seg button.on{background:var(--card); color:var(--ink); box-shadow:var(--shadow)}
+.log{background:var(--bg); border:1px solid var(--line); border-radius:12px; padding:10px 12px; margin-top:14px;
+  min-height:56px; max-height:280px; overflow:auto; white-space:pre-wrap; word-break:break-word; font-size:.92rem}
+.log .ok{color:var(--ok)} .log .bad{color:var(--bad)} .log .warn{color:var(--warn)}
+.log .t{color:var(--muted); margin-right:6px}
+
+/* settings, advanced */
+dl.kv{display:grid; grid-template-columns:max-content minmax(0,1fr); gap:8px 16px; margin:12px 0 0}
+dl.kv dt{color:var(--muted)}
+dl.kv dd{margin:0; overflow-wrap:anywhere}
+details.group{border-top:1px solid var(--line); margin-top:12px; padding-top:4px}
+details.group > summary{cursor:pointer; list-style:none; font-weight:600; padding:10px 0; display:flex; justify-content:space-between; gap:8px}
+details.group > summary::-webkit-details-marker{display:none}
+details.group > summary::after{content:"+"; color:var(--muted); font-size:1.25rem; line-height:1; transition:transform .2s ease}
+details.group[open] > summary::after{transform:rotate(45deg)}
+.erow{padding:12px 0; border-top:1px solid var(--line)}
+.erow:first-of-type{border-top:0}
+.eh{display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap}
+.ename{font-family:ui-monospace,Menlo,Consolas,monospace; font-size:.9rem; overflow-wrap:anywhere}
+.edesc{color:var(--muted); font-size:.88rem; margin-top:4px}
+.enote{color:var(--warn); font-size:.88rem; margin-top:4px}
+.eacts{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px}
+.valbox{font-family:ui-monospace,Menlo,Consolas,monospace; background:var(--bg); border:1px solid var(--line); border-radius:10px;
+  padding:10px; margin-top:10px; word-break:break-all; font-size:.88rem}
+.genout{margin-top:10px; display:flex; flex-direction:column; gap:8px}
+.genout code{font-family:ui-monospace,Menlo,Consolas,monospace; background:var(--bg); border:1px solid var(--line);
+  border-radius:10px; padding:10px; word-break:break-all; font-size:.88rem}
+.hint{color:var(--muted); font-size:.88rem; margin:4px 0 0}
+.errline{color:var(--bad); min-height:1.4em; margin:10px 0 0; font-size:.92rem}
+.okline{color:var(--ok); min-height:1.4em; margin:10px 0 0; font-size:.92rem}
+
+.toast{position:fixed; left:50%; bottom:92px; transform:translate(-50%,16px); opacity:0; background:var(--ink);
+  color:var(--bg); padding:11px 16px; border-radius:12px; max-width:92vw; z-index:40; pointer-events:none;
+  transition:opacity .25s ease, transform .25s ease}
+.toast.show{opacity:1; transform:translate(-50%,0)}
+@media (min-width:720px){ .toast{bottom:24px} }
+
+/* phones: navigation becomes a bottom bar, content gets room above it */
+@media (max-width:719px){
+  .tabs{position:fixed; left:0; right:0; bottom:0; z-index:25; margin:0; padding:6px 6px calc(6px + env(safe-area-inset-bottom));
+    background:var(--card); border-top:1px solid var(--line); border-bottom:0; justify-content:space-around}
+  .tab{flex-direction:column; gap:2px; padding:6px 4px; font-size:.74rem; flex:1 1 0; min-width:0; border-radius:10px}
+  .tab.on::after{display:none}
+  .tab.on{background:var(--soft)}
+  .ico{width:22px; height:22px}
+  .wrap{padding:14px 12px 110px}
+  .card{padding:18px 16px}
+  .top-in{padding:10px 12px}
+  .brand small{display:none}
+  .btn.big{min-height:60px}
+  .hide-m{display:none}
 }
-@media (pointer:coarse){ button{min-height:46px} }
-@media (prefers-reduced-motion:reduce){ .cursor,.tag.danger,main,.roll,.page{animation:none} }
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none !important; transition:none !important}
+}
 </style>
 </head>
 <body>
-<div class="roll" aria-hidden="true"></div>
-<main>
-  <header class="top">
-    <div class="brand">&#9612;ARCHIVE&nbsp;TERMINAL <b>//</b> INSTAGRAM-MCP<span class="cursor"></span></div>
-    <div class="sys">NODE: <span id="node">&mdash;</span></div>
-  </header>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1"/><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"/></symbol>
+  <symbol id="i-cam" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r=".6"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h10M18 18h2"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="16" cy="18" r="2"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></symbol>
+</svg>
 
-  <!-- LOGIN -->
-  <section id="login" class="panel center hidden">
-    <h2><em>00</em>AUTHENTICATION REQUIRED</h2>
+<header class="top">
+  <div class="top-in">
+    <div class="logo" aria-hidden="true">IG</div>
+    <div class="brand">Instagram MCP<small>Send photos and videos, then post them with your AI assistant</small></div>
+    <div class="top-actions">
+      <a class="btn primary small hidden" id="uploadTop" href="/upload"><svg class="ico" aria-hidden="true"><use href="#i-upload"/></svg><span>Upload</span></a>
+      <button class="btn ghost small hidden hide-m" id="logoutBtn" type="button">Sign out</button>
+    </div>
+  </div>
+</header>
+
+<nav class="tabs hidden" id="tabs" aria-label="Sections">
+  <a class="tab" href="#home" data-go="home"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span>Home</span></a>
+  <a class="tab" href="#connect" data-go="connect"><svg class="ico" aria-hidden="true"><use href="#i-link"/></svg><span>Connect</span></a>
+  <a class="tab" href="#instagram" data-go="instagram"><svg class="ico" aria-hidden="true"><use href="#i-cam"/></svg><span>Instagram</span></a>
+  <a class="tab" href="#settings" data-go="settings"><svg class="ico" aria-hidden="true"><use href="#i-sliders"/></svg><span>Settings</span></a>
+  <a class="tab" href="#advanced" data-go="advanced"><svg class="ico" aria-hidden="true"><use href="#i-grid"/></svg><span>Advanced</span></a>
+</nav>
+
+<main class="wrap">
+  <!-- SIGN IN -->
+  <section id="login" class="view card center hidden" aria-labelledby="loginTitle">
+    <h2 id="loginTitle">Sign in</h2>
     <form id="loginForm" autocomplete="on">
-      <div id="fUser"><label for="u">USERNAME</label><input id="u" name="username" autocomplete="username"></div>
-      <div id="fPass"><label for="p">PASSWORD</label><input id="p" name="password" type="password" autocomplete="current-password"></div>
-      <div id="fKey" class="hidden"><label for="k">ACCESS KEY (MCP_AUTH_KEY)</label><input id="k" name="key" type="password" autocomplete="off"></div>
-      <div class="line" style="margin-top:14px"><button type="submit" id="loginBtn">[ ENTER ]</button></div>
-      <div class="err" id="loginErr" role="alert"></div>
+      <div id="fUser"><label for="u">Username</label><input id="u" name="username" autocomplete="username"></div>
+      <div id="fPass"><label for="p">Password</label><input id="p" name="password" type="password" autocomplete="current-password"></div>
+      <div id="fKey" class="hidden"><label for="k">Access key</label><input id="k" name="key" type="password" autocomplete="off"></div>
+      <div class="row"><button class="btn primary big" type="submit" id="loginBtn">Sign in</button></div>
+      <div class="errline" id="loginErr" role="alert"></div>
     </form>
     <p class="hint" id="loginHint"></p>
   </section>
 
-  <!-- SETUP (no auth configured yet) -->
-  <section id="setup" class="hidden">
-    <div class="banner bad" id="setupNote">&#9888; DASHBOARD LOCKED: set MCP_AUTH_KEY (or ADMIN_USERNAME + ADMIN_PASSWORD)
-      in Vercel &rarr; Settings &rarr; Environment Variables, redeploy, then reload.</div>
-    <section class="panel">
-      <h2><em>00</em>SETUP // ENVIRONMENT</h2>
+  <!-- FIRST SET-UP (no access configured yet) -->
+  <section id="setup" class="view hidden">
+    <div class="card">
+      <h2>Almost ready</h2>
+      <div class="banner bad" id="setupNote">Add the settings below in Vercel, then redeploy.</div>
+      <p class="muted small">Vercel: your project, then Settings, then Environment Variables. After saving, redeploy and reload this page.</p>
       <div id="setupBanner"></div>
       <div id="setupRows"></div>
-    </section>
+    </div>
   </section>
 
-  <!-- DASHBOARD: navigation plus one page per section -->
+  <!-- THE DASHBOARD -->
   <div id="app" class="hidden">
-    <nav class="nav" aria-label="Dashboard sections">
-      <a href="#home" data-page="home">HOME</a>
-      <a href="#connect" data-page="connect">CONNECT</a>
-      <a href="#env" data-page="env">ENVIRONMENT</a>
-      <a href="#instagram" data-page="instagram">INSTAGRAM</a>
-      <a href="#tests" data-page="tests">TESTS</a>
-      <span class="spacer"></span>
-      <button class="alt" id="logoutBtn">[ LOG OUT ]</button>
-    </nav>
 
     <section class="page" data-page="home">
-      <div class="panel">
-        <h2><em>//</em>OVERVIEW</h2>
-        <div id="envBanner"></div>
-        <dl class="kv">
-          <dt>AUTH</dt><dd id="kvMode">&mdash;</dd>
-          <dt>STORAGE</dt><dd id="kvStorage">&mdash;</dd>
-          <dt>SERVER</dt><dd id="kvOrigin">&mdash;</dd>
-        </dl>
+      <div class="card hero">
+        <h1>Your Instagram helper</h1>
+        <p class="muted">Add photos and videos here. Your AI assistant can then post them to Instagram for you.</p>
+        <div class="row"><a class="btn primary big" id="uploadBtn" href="/upload"><svg class="ico" aria-hidden="true"><use href="#i-upload"/></svg><span>Upload photos and videos</span></a></div>
+        <p class="hint">Files you do not post are removed after <span id="homeKeep">48</span> hours. You can change this in Settings.</p>
       </div>
-      <div class="cards">
-        <a class="card" href="#connect">
-          <span class="card-t">CONNECT</span>
-          <span class="card-d">MCP URL, upload page and the browser sync extension</span>
-          <span class="card-s">Copy the URL or download the extension</span>
+
+      <div class="tiles">
+        <a class="tile" href="#instagram">
+          <b>Instagram</b>
+          <span class="muted">Sign in so posts can go out.</span><br>
+          <span class="pill" id="homeIg">Checking</span>
         </a>
-        <a class="card" href="#env">
-          <span class="card-t">ENVIRONMENT</span>
-          <span class="card-d">Variables, keys and generators</span>
-          <span class="card-s" id="homeEnv">&mdash;</span>
+        <a class="tile" href="#connect">
+          <b>Your AI app</b>
+          <span class="muted">Add the address once, then ask your assistant to post.</span><br>
+          <span class="pill ok">Address ready</span>
         </a>
-        <a class="card" href="#instagram">
-          <span class="card-t">INSTAGRAM</span>
-          <span class="card-d">Log in with your session cookie</span>
-          <span class="card-s" id="homeIg">&mdash;</span>
+        <a class="tile" href="#advanced">
+          <b>Setup</b>
+          <span class="muted">Checks that everything the server needs is in place.</span><br>
+          <span class="pill" id="homeSetup">Checking</span>
         </a>
-        <a class="card" href="#tests">
-          <span class="card-t">TESTS</span>
-          <span class="card-d">Check that each endpoint answers</span>
-          <span class="card-s">Runs against this server</span>
-        </a>
+      </div>
+
+      <div class="card" style="margin-top:14px">
+        <h2>How it works</h2>
+        <ol class="steps">
+          <li>Sign in to Instagram (the Instagram page).</li>
+          <li>Add your address to your AI app (the Connect page).</li>
+          <li>Upload photos and videos, then ask your assistant to post them.</li>
+        </ol>
       </div>
     </section>
 
     <section class="page" data-page="connect">
-      <div class="panel">
-        <h2><em>//</em>MCP URL</h2>
-        <p class="hint">Paste this into your AI app as a custom MCP connector. It contains the key, so treat it like a password.</p>
-        <div class="line" style="margin-top:12px">
-          <div class="box" id="mcpUrl">&hellip;</div>
-          <button id="revealBtn" class="alt">[ REVEAL ]</button>
-        </div>
-        <div class="line btns">
-          <button id="copyUrlBtn">[ COPY MCP URL ]</button>
-          <button class="alt" data-copy="health">[ COPY HEALTH URL ]</button>
-          <button class="alt" data-copy="upload">[ COPY UPLOAD PAGE ]</button>
+      <div class="card">
+        <h2>1. Add this address to your AI app</h2>
+        <p class="muted small">Paste it into your AI app as a custom connector. The address includes your access key, so keep it private.</p>
+        <div class="addr" id="mcpUrl">Loading...</div>
+        <div class="row">
+          <button class="btn" id="revealBtn" type="button">Show address</button>
+          <button class="btn primary" id="copyUrlBtn" type="button">Copy address</button>
         </div>
       </div>
-      <div class="panel">
-        <h2><em>//</em>BROWSER SYNC EXTENSION</h2>
-        <p class="hint">Chrome or Firefox. It sends your Instagram login to this server, encrypted, so the session stays fresh.</p>
-        <div class="line btns">
-          <a class="btn" href="/api/main?admin=extension" download>[ DOWNLOAD CONFIGURED EXTENSION ]</a>
-        </div>
-        <p class="hint">Ready to use: this server's address and keys are already filled in. Don't share the file.</p>
-        <p class="hint">Without keys: <a href="/extension/instagram-mcp-sync.zip">instagram-mcp-sync.zip</a>
-          &middot; <a href="/extension/README.md">setup guide</a></p>
-      </div>
-    </section>
 
-    <section class="page" data-page="env">
-      <div class="panel">
-        <h2><em>//</em>ENVIRONMENT VARIABLES</h2>
-        <p class="hint">Values stay hidden. SHOW reveals MCP_AUTH_KEY or SESSION_ENCRYPTION_KEY only. After changing a variable in Vercel, redeploy.</p>
-        <div id="envRows"></div>
+      <div class="card">
+        <h2>2. Keep Instagram signed in (optional)</h2>
+        <p class="muted small">A browser extension can send your Instagram sign-in here automatically, so you rarely need to do it by hand. Install it on the computer where you are signed in to Instagram.</p>
+        <div class="row">
+          <a class="btn" href="/api/main?admin=extension" download>Download the extension</a>
+        </div>
+        <p class="hint">It already contains this server's address. Do not share the file.</p>
       </div>
     </section>
 
     <section class="page" data-page="instagram">
-      <div class="panel">
-        <h2><em>//</em>INSTAGRAM SESSION</h2>
-        <div class="banner warn" id="storeBanner"></div>
-        <div class="tabs">
-          <button id="tabCookie" class="on">COOKIE</button>
-          <button id="tabPass" class="alt">USERNAME + PASSWORD</button>
+      <div class="card">
+        <div class="head">
+          <h2>Instagram</h2>
+          <span class="pill" id="igPill">Checking</span>
         </div>
+        <p class="muted small" id="igText">Checking your connection...</p>
+      </div>
+
+      <div class="card">
+        <h2>Connect your account</h2>
+        <div class="seg" role="tablist">
+          <button id="tabCookie" class="on" type="button" role="tab" aria-selected="true">Simple</button>
+          <button id="tabPass" type="button" role="tab" aria-selected="false">Username and password</button>
+        </div>
+
         <div id="formCookie">
-          <label for="sid">SESSIONID COOKIE</label><input id="sid" type="password" autocomplete="off">
-          <label for="sun">USERNAME (OPTIONAL)</label><input id="sun" autocomplete="off">
-          <p class="hint">Easiest: use the browser extension, which syncs this for you. Manual: log in at instagram.com, solve any captcha there, then copy the <b>sessionid</b> cookie (F12 &rarr; Application &rarr; Cookies).</p>
-          <div class="line btns"><button id="saveCookie">[ SAVE SESSION ]</button></div>
+          <label for="sid">Session ID</label>
+          <input id="sid" type="password" autocomplete="off">
+          <label for="sun">Instagram username (optional)</label>
+          <input id="sun" autocomplete="off">
+          <p class="hint">Easiest: install the browser extension from the Connect page, and it does this for you. Or log in at instagram.com, then copy the value of the <b>sessionid</b> cookie from your browser's developer tools.</p>
+          <div class="row"><button class="btn primary" id="saveCookie" type="button">Save connection</button></div>
         </div>
+
         <div id="formPass" class="hidden">
-          <label for="iun">INSTAGRAM USERNAME</label><input id="iun" autocomplete="off">
-          <label for="ipw">INSTAGRAM PASSWORD</label><input id="ipw" type="password" autocomplete="off">
-          <p class="hint">Fallback only. Logins from Vercel's servers often trigger a security check, and a captcha cannot be solved here.</p>
-          <div class="line btns"><button id="savePass">[ LOG IN ]</button></div>
+          <label for="iun">Instagram username</label>
+          <input id="iun" autocomplete="off">
+          <label for="ipw">Instagram password</label>
+          <input id="ipw" type="password" autocomplete="off">
+          <p class="hint">Only use this if the other way does not work. Logins from Vercel's servers often trigger a security check that cannot be completed here.</p>
+          <div class="row"><button class="btn primary" id="savePass" type="button">Log in</button></div>
         </div>
+
         <div id="codeBox" class="hidden">
-          <label for="code" id="codeLabel">VERIFICATION CODE</label>
-          <div class="line"><input id="code" autocomplete="one-time-code" style="flex:1 1 200px"><button id="sendCode">[ SUBMIT CODE ]</button></div>
+          <label for="code" id="codeLabel">Verification code</label>
+          <div class="row">
+            <input id="code" autocomplete="one-time-code" class="grow">
+            <button class="btn primary" id="sendCode" type="button">Send code</button>
+          </div>
         </div>
-        <div class="line btns"><button class="alt" id="checkSession">[ CHECK STATUS ]</button></div>
+
+        <div class="row"><button class="btn" id="checkSession" type="button">Check connection</button></div>
         <div class="log" id="sessLog" aria-live="polite"></div>
       </div>
     </section>
 
-    <section class="page" data-page="tests">
-      <div class="panel">
-        <h2><em>//</em>ENDPOINT TESTS</h2>
-        <label for="tk">OPTIONAL: TEST WITH A DIFFERENT KEY</label>
-        <div class="line"><input id="tk" type="password" autocomplete="off" style="flex:1 1 220px">
-          <button id="testBtn">[ RUN TESTS ]</button></div>
+    <section class="page" data-page="settings">
+      <div class="card">
+        <h2>Uploaded files</h2>
+        <p class="muted small">Files you upload but do not post are removed automatically after this many hours.</p>
+        <label for="hours">Keep files for (hours)</label>
+        <div class="row">
+          <input id="hours" type="number" min="1" max="720" step="1" inputmode="numeric" class="grow" style="max-width:220px">
+          <button class="btn primary" id="saveHours" type="button">Save</button>
+          <button class="btn" id="resetHours" type="button">Back to 48 hours</button>
+        </div>
+        <p class="small okline" id="hoursOk"></p>
+        <p class="small errline" id="hoursErr"></p>
+        <p class="hint">Allowed range: 1 to 720 hours (30 days). The default is 48 hours.</p>
+      </div>
+
+      <div class="card">
+        <h2>Sign out</h2>
+        <p class="muted small">Sign out of this dashboard on this device.</p>
+        <div class="row"><button class="btn" id="logoutBtn2" type="button">Sign out</button></div>
+      </div>
+    </section>
+
+    <section class="page" data-page="advanced">
+      <div class="card">
+        <h2>Setup checklist</h2>
+        <p class="muted small">Values stay hidden. You can show or copy the two secrets the dashboard needs. After changing a setting in Vercel, redeploy.</p>
+        <div id="envBanner"></div>
+        <div id="envRows"></div>
+      </div>
+
+      <div class="card">
+        <h2>Server details</h2>
+        <dl class="kv">
+          <dt>Sign-in</dt><dd id="kvMode">&mdash;</dd>
+          <dt>Storage</dt><dd id="kvStorage">&mdash;</dd>
+          <dt>Server</dt><dd id="kvOrigin">&mdash;</dd>
+        </dl>
+        <div class="row">
+          <button class="btn small" id="copyHealthBtn" type="button">Copy health link</button>
+          <button class="btn small" id="copyUploadBtn" type="button">Copy upload link</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Check the server</h2>
+        <p class="muted small">Runs a few requests against this server to confirm it answers. Leave the box empty to use this session's key.</p>
+        <label for="tk">Optional: a different access key</label>
+        <div class="row">
+          <input id="tk" type="password" autocomplete="off" class="grow">
+          <button class="btn primary" id="testBtn" type="button">Run checks</button>
+        </div>
         <div class="log" id="testLog" aria-live="polite"></div>
-        <p class="hint">Leave the box empty to test with the MCP key from this session. A wrong key should be rejected; the right key should pass.</p>
       </div>
     </section>
   </div>
@@ -328,7 +396,7 @@ label{display:block; font-size:11px; letter-spacing:.16em; color:var(--cyan); ma
 <script>
 "use strict";
 const $ = (s) => document.querySelector(s);
-const show = (el, on) => el.classList.toggle("hidden", !on);
+const show = (node, on) => node.classList.toggle("hidden", !on);
 function el(tag, cls, text) {
   const n = document.createElement(tag);
   if (cls) n.className = cls;
@@ -352,17 +420,23 @@ async function copyText(text) {
 }
 function flash(btn, text) {
   const old = btn.textContent; btn.textContent = text;
-  setTimeout(() => { btn.textContent = old; }, 1200);
+  setTimeout(() => { btn.textContent = old; }, 1400);
+}
+let toastTimer = 0;
+function toast(message) {
+  let t = $("#toast");
+  if (!t) { t = el("div", "toast"); t.id = "toast"; document.body.appendChild(t); }
+  t.textContent = message; t.classList.add("show");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 2800);
 }
 function logLine(box, cls, msg) {
-  const t = new Date().toTimeString().slice(0, 8);
   const d = el("div");
-  d.appendChild(el("span", "t", t + "  "));
+  d.appendChild(el("span", "t", new Date().toTimeString().slice(0, 8)));
   d.appendChild(el("span", cls, msg));
   box.appendChild(d); box.scrollTop = box.scrollHeight;
 }
 
-/* ---------- key generators (run in your browser; nothing is sent anywhere) ---------- */
+/* key generators (run in your browser; nothing is sent anywhere) */
 function rand(n) { const a = new Uint8Array(n); crypto.getRandomValues(a); return a; }
 const hex = (a) => Array.from(a, (b) => b.toString(16).padStart(2, "0")).join("");
 function b64url(a) { return btoa(String.fromCharCode(...a)).replace(/\+/g, "-").replace(/\//g, "_"); }
@@ -376,37 +450,53 @@ const GEN = {
   SESSION_ENCRYPTION_KEY: () => b64url(rand(32)),
   ADMIN_PASSWORD: () => password(24),
 };
-// Secrets the dashboard may reveal to a logged-in admin (the server enforces the same list).
+// Secrets a logged-in admin may reveal (the server enforces the same list).
 const SECRETS = {MCP_AUTH_KEY: true, SESSION_ENCRYPTION_KEY: true};
 
-/* ---------- state ---------- */
+/* state (kept in memory only) */
 let origin = location.origin;
 let revealed = false;
 let maskedUrl = "";
+let fullUrl = "";
+let accessKey = "";
 let pendingCode = "";
 
-/* ---------- navigation between pages (hash routing) ---------- */
-const PAGES = ["home", "connect", "env", "instagram", "tests"];
+/* navigation between sections */
+const PAGES = ["home", "connect", "instagram", "settings", "advanced"];
 function route() {
   const name = (location.hash || "#home").slice(1);
   const page = PAGES.includes(name) ? name : "home";
   document.querySelectorAll(".page").forEach((s) => show(s, s.dataset.page === page));
-  document.querySelectorAll(".nav a").forEach((a) => a.classList.toggle("on", a.dataset.page === page));
+  document.querySelectorAll(".tab").forEach((t) => {
+    const on = t.dataset.go === page;
+    t.classList.toggle("on", on);
+    if (on) t.setAttribute("aria-current", "page"); else t.removeAttribute("aria-current");
+  });
 }
 window.addEventListener("hashchange", () => { route(); window.scrollTo(0, 0); });
 
+function uploadHref() { return "/upload" + (accessKey ? "?auth=" + encodeURIComponent(accessKey) : ""); }
+
+function setView(name) {
+  show($("#login"), name === "login");
+  show($("#setup"), name === "setup");
+  show($("#app"), name === "app");
+  show($("#tabs"), name === "app");
+  show($("#logoutBtn"), name === "app");
+  show($("#uploadTop"), name === "app");
+}
+
 async function boot() {
-  show($("#login"), false); show($("#setup"), false); show($("#app"), false);
-  $("#node").textContent = location.host;
+  setView("none");
   let info = null;
   try { info = (await api("info")).data; } catch (e) { info = null; }
   if (!info) {
-    show($("#setup"), true);
-    $("#setupNote").textContent = "Cannot reach the server. Reload to try again.";
+    setView("setup");
+    $("#setupNote").textContent = "Cannot reach the server. Reload the page to try again.";
     return;
   }
   if (info.mode === "none") {
-    show($("#setup"), true);
+    setView("setup");
     const s = (await api("status")).data;
     if (s && s.env) renderEnv(s.env, $("#setupBanner"), $("#setupRows"), false);
     return;
@@ -416,12 +506,12 @@ async function boot() {
 }
 
 function showLogin(mode) {
-  show($("#login"), true);
+  setView("login");
   const pw = mode === "password";
   show($("#fUser"), pw); show($("#fPass"), pw); show($("#fKey"), !pw);
   $("#loginHint").textContent = pw
-    ? "Sign in with ADMIN_USERNAME and ADMIN_PASSWORD."
-    : "Paste your MCP_AUTH_KEY. Set ADMIN_USERNAME and ADMIN_PASSWORD to use a login name instead.";
+    ? "Use the username and password set in Vercel (ADMIN_USERNAME and ADMIN_PASSWORD)."
+    : "Paste the access key from your Vercel settings (MCP_AUTH_KEY).";
   (pw ? $("#u") : $("#k")).focus();
 }
 
@@ -433,42 +523,70 @@ $("#loginForm").addEventListener("submit", async (e) => {
   const r = await api("login", body);
   $("#loginBtn").disabled = false;
   if (r.status === 200) { $("#p").value = ""; $("#k").value = ""; boot(); }
-  else $("#loginErr").textContent = "⚠ " + (r.data.error || "Login failed.");
+  else $("#loginErr").textContent = r.data.error || "Sign-in failed. Please try again.";
 });
 
 async function loadApp() {
   const r = await api("status");
   if (r.status === 401) { boot(); return; }
   const s = r.data;
-  show($("#app"), true);
   origin = s.origin || location.origin;
   maskedUrl = s.mcp_url_masked || "";
-  revealed = false; $("#revealBtn").textContent = "[ REVEAL ]";
-  $("#mcpUrl").textContent = maskedUrl;
-  renderEnv(s.env, $("#envBanner"), $("#envRows"), true);
+  fullUrl = "";
+  revealed = false;
+  $("#revealBtn").textContent = "Show address";
+  $("#mcpUrl").textContent = maskedUrl || "Set up the access key first (see Advanced).";
+  setView("app");
+
+  // The key is needed only for the upload link. It is read once per visit, held in memory, never stored.
+  const rv = await api("reveal", {});
+  accessKey = (rv.data && rv.data.key) || "";
+  $("#uploadBtn").href = uploadHref();
+  $("#uploadTop").href = uploadHref();
+
+  const env = s.env || {};
+  renderEnv(env, $("#envBanner"), $("#envRows"), true);
+  const bad = env.required_bad || 0;
+  const setup = $("#homeSetup");
+  setup.className = "pill " + (bad ? "warn" : "ok");
+  setup.textContent = bad ? bad + " to fix" : "All set";
+
   const st = s.storage || {};
   const where = st.backend === "blob" ? "Vercel Blob" : "temporary disk (lost on restart)";
   const summary = where + (st.encryption ? ", encrypted" : ", NOT encrypted") +
     (st.exists === false ? ", no session saved" : st.exists ? ", session saved" : "") +
     (st.error ? " (error: " + st.error + ")" : "");
   $("#kvStorage").textContent = summary;
-  $("#storeBanner").textContent = "Session storage: " + summary + ".";
-  $("#kvMode").textContent = s.mode === "password" ? "username + password" : "MCP key";
+  $("#kvMode").textContent = s.mode === "password" ? "Username and password" : "Access key";
   $("#kvOrigin").textContent = origin;
-  // Short summaries on the home cards.
-  $("#homeEnv").textContent = s.env.required_bad
-    ? s.env.required_bad + " required variable(s) need attention"
-    : "all required variables are set";
-  $("#homeIg").textContent = st.exists ? "session saved" : "no session saved yet";
+  renderSessionStatus(st);
+
+  const us = await api("upload_settings");
+  if (us.status === 200) {
+    $("#hours").value = us.data.retention_hours;
+    $("#homeKeep").textContent = us.data.retention_hours;
+  }
   route();
 }
 
-/* ---------- environment checklist ---------- */
-const TAGS = {ok: "[ OK ]", missing: "[ ⚠ MISSING ]", invalid: "[ ⚠ INVALID ]",
-  weak: "[ ⚠ WEAK ]", danger: "[ ⚠ DANGER ]", unset: "[ — UNSET ]"};
+function renderSessionStatus(st) {
+  const pill = $("#igPill"), home = $("#homeIg"), text = $("#igText");
+  if (st.exists) {
+    pill.className = "pill ok"; pill.textContent = "Connected";
+    home.className = "pill ok"; home.textContent = "Connected";
+    text.textContent = "Your Instagram sign-in is saved. Posts can go out.";
+  } else {
+    pill.className = "pill warn"; pill.textContent = "Not connected";
+    home.className = "pill warn"; home.textContent = "Not connected";
+    text.textContent = "No Instagram sign-in is saved yet. Add one below so posts can go out.";
+  }
+}
+
+/* setup checklist (Advanced, and the first-run screen) */
+const TAGS = {ok: ["Set", "ok"], missing: ["Missing", "bad"], invalid: ["Needs fixing", "bad"],
+  weak: ["Too weak", "warn"], danger: ["Remove it", "bad"], unset: ["Not set", ""]};
 
 function renderEnv(env, bannerEl, rowsEl, canReveal) {
-  // Remember which groups are open, so a refresh doesn't fold them back up.
   const wasOpen = {};
   rowsEl.querySelectorAll("details.group").forEach((d) => { wasOpen[d.dataset.level] = d.open; });
   bannerEl.replaceChildren(); rowsEl.replaceChildren();
@@ -476,23 +594,23 @@ function renderEnv(env, bannerEl, rowsEl, canReveal) {
   const bad = env.required_bad;
   const b = el("div", "banner " + (bad ? "bad" : env.warnings ? "warn" : "good"));
   b.textContent = bad
-    ? "⚠ " + bad + " OF " + env.required_total + " REQUIRED VARIABLES NEED ATTENTION"
-    : env.warnings ? "✔ REQUIRED VARIABLES PRESENT — " + env.warnings + " WARNING(S)"
-    : "✔ ALL REQUIRED VARIABLES PRESENT";
+    ? bad + " of " + env.required_total + " required settings still need attention."
+    : env.warnings ? "Everything required is set. " + env.warnings + " suggestion(s) to review."
+    : "Everything required is set.";
   bannerEl.appendChild(b);
 
   const groups = [
-    ["required", "REQUIRED", true],
-    ["recommended", "RECOMMENDED", true],
-    ["optional", "OPTIONAL", false],
-    ["danger", "DANGEROUS", false],
+    ["required", "Required", true],
+    ["recommended", "Recommended", true],
+    ["optional", "Optional", false],
+    ["danger", "Should not be set", false],
   ];
   for (const [level, title, openByDefault] of groups) {
     const rows = env.rows.filter((r) => r.level === level);
     if (!rows.length) continue;
     const setCount = rows.filter((r) => r.set).length;
     const summary = level === "danger"
-      ? (setCount ? "⚠ " + setCount + " SET — REMOVE IT" : "none set (correct)")
+      ? (setCount ? setCount + " set, remove them" : "none set (correct)")
       : setCount + " of " + rows.length + " set";
     const d = el("details", "group");
     d.dataset.level = level;
@@ -504,52 +622,55 @@ function renderEnv(env, bannerEl, rowsEl, canReveal) {
 }
 
 function envRow(r, canReveal) {
-  const row = el("div", "row");
-  const head = el("div", "rowhead");
-  head.appendChild(el("span", "name", r.name));
-  head.appendChild(el("span", "tag " + r.state, TAGS[r.state] || r.state));
+  const row = el("div", "erow");
+  const head = el("div", "eh");
+  head.appendChild(el("span", "ename", r.name));
+  const [label, tone] = TAGS[r.state] || [r.state, ""];
+  head.appendChild(el("span", "pill " + tone, label));
   row.appendChild(head);
-  row.appendChild(el("div", "desc", r.desc));
-  if (r.note) row.appendChild(el("div", "note", "⚠ " + r.note));
+  row.appendChild(el("div", "edesc", r.desc));
+  if (r.note) row.appendChild(el("div", "enote", r.note));
 
-  const acts = el("div", "acts");
-  const valueBox = el("div", "box hidden");
+  const acts = el("div", "eacts");
+  const valueBox = el("div", "valbox hidden");
   if (canReveal && SECRETS[r.name] && r.set) {
-    const showBtn = el("button", "alt", "[ SHOW ]");
-    const copyBtn = el("button", "alt", "[ COPY ]");
+    const showBtn = el("button", "btn small", "Show");
+    const copyBtn = el("button", "btn small", "Copy");
     let open = false;
+    showBtn.type = "button"; copyBtn.type = "button";
     showBtn.addEventListener("click", async () => {
       if (open) {
         valueBox.textContent = ""; show(valueBox, false);
-        showBtn.textContent = "[ SHOW ]"; open = false; return;
+        showBtn.textContent = "Show"; open = false; return;
       }
       const res = await api("secret", {name: r.name});
       if (res.status === 401) { boot(); return; }
       valueBox.textContent = res.data.value || "(empty)";
-      show(valueBox, true); showBtn.textContent = "[ HIDE ]"; open = true;
+      show(valueBox, true); showBtn.textContent = "Hide"; open = true;
     });
     copyBtn.addEventListener("click", async () => {
       const res = await api("secret", {name: r.name});
       if (res.status === 401) { boot(); return; }
-      flash(copyBtn, (await copyText(res.data.value || "")) ? "COPIED" : "COPY FAILED");
+      flash(copyBtn, (await copyText(res.data.value || "")) ? "Copied" : "Copy failed");
     });
     acts.appendChild(showBtn); acts.appendChild(copyBtn);
   }
 
   let genOut = null;
   if (GEN[r.name]) {
-    const btn = el("button", "alt", r.state === "ok" ? "[ REGENERATE ]" : "[ GEN ]");
+    const btn = el("button", "btn small", r.state === "ok" ? "Make a new one" : "Make one");
+    btn.type = "button";
     genOut = el("div", "genout hidden");
     btn.addEventListener("click", () => {
       const v = GEN[r.name]();
       genOut.replaceChildren(); show(genOut, true);
       genOut.appendChild(el("code", "", v));
-      const cp = el("button", "", "[ COPY ]");
-      cp.addEventListener("click", async () => flash(cp, (await copyText(v)) ? "COPIED" : "COPY FAILED"));
+      const cp = el("button", "btn small", "Copy"); cp.type = "button";
+      cp.addEventListener("click", async () => flash(cp, (await copyText(v)) ? "Copied" : "Copy failed"));
       genOut.appendChild(cp);
       genOut.appendChild(el("div", "hint", r.name === "SESSION_ENCRYPTION_KEY" && r.state === "ok"
-        ? "Replacing this makes the saved Instagram session unreadable; you will need to add it again."
-        : "Paste into Vercel → Settings → Environment Variables (Production), then redeploy."));
+        ? "Replacing this makes the saved Instagram session unreadable. You will need to connect Instagram again."
+        : "Paste it into Vercel (Settings, Environment Variables, Production), then redeploy."));
     });
     acts.appendChild(btn);
   }
@@ -559,23 +680,28 @@ function envRow(r, canReveal) {
   return row;
 }
 
-/* ---------- connect page ---------- */
+/* connect */
 async function getReveal() { const r = await api("reveal", {}); return r.data; }
 $("#revealBtn").addEventListener("click", async () => {
-  if (revealed) { $("#mcpUrl").textContent = maskedUrl; revealed = false; $("#revealBtn").textContent = "[ REVEAL ]"; return; }
-  const d = await getReveal(); $("#mcpUrl").textContent = d.mcp_url || ""; revealed = true; $("#revealBtn").textContent = "[ HIDE ]";
+  if (revealed) {
+    $("#mcpUrl").textContent = maskedUrl; revealed = false; $("#revealBtn").textContent = "Show address"; return;
+  }
+  const d = await getReveal();
+  $("#mcpUrl").textContent = d.mcp_url || ""; fullUrl = d.mcp_url || "";
+  revealed = true; $("#revealBtn").textContent = "Hide address";
 });
 $("#copyUrlBtn").addEventListener("click", async (e) => {
   const d = await getReveal();
-  flash(e.target, (await copyText(d.mcp_url || "")) ? "COPIED" : "COPY FAILED");
+  flash(e.target, (await copyText(d.mcp_url || "")) ? "Copied" : "Copy failed");
 });
-document.querySelectorAll("[data-copy]").forEach((btn) => btn.addEventListener("click", async () => {
-  const d = await getReveal(); const key = d.key ? encodeURIComponent(d.key) : "";
-  const map = {health: origin + "/healthz", upload: origin + "/upload" + (key ? "?auth=" + key : "")};
-  flash(btn, (await copyText(map[btn.dataset.copy])) ? "COPIED" : "COPY FAILED");
-}));
+$("#copyHealthBtn").addEventListener("click", async (e) => {
+  flash(e.target, (await copyText(origin + "/healthz")) ? "Copied" : "Copy failed");
+});
+$("#copyUploadBtn").addEventListener("click", async (e) => {
+  flash(e.target, (await copyText(origin + uploadHref())) ? "Copied" : "Copy failed");
+});
 
-/* ---------- endpoint tests (run in the browser, against this site) ---------- */
+/* server checks (run in the browser, against this site) */
 function parseRpc(text) {
   const line = text.split("\n").find((l) => l.startsWith("data:"));
   try { return JSON.parse(line ? line.slice(5) : text); } catch (e) { return null; }
@@ -586,41 +712,46 @@ $("#testBtn").addEventListener("click", async () => {
   if (!key) {
     try { const d = await getReveal(); key = (d && d.key) || ""; } catch (e) { key = ""; }
   }
-  if (!key) { logLine(box, "warn", "No MCP_AUTH_KEY is set on the server, so there is nothing to test with. Set it in Vercel first."); return; }
+  if (!key) { logLine(box, "warn", "No access key is set on the server yet, so there is nothing to check. Set it in Vercel first."); return; }
   const hdr = (k) => ({"Content-Type": "application/json", "Accept": "application/json, text/event-stream",
     "Authorization": "Bearer " + k});
   const rpc = (method, params, id) => JSON.stringify({jsonrpc: "2.0", id, method, params});
   const init = {protocolVersion: "2025-03-26", capabilities: {}, clientInfo: {name: "dashboard-test", version: "1"}};
   const tests = [
-    ["GET  /healthz", async () => { const r = await fetch("/healthz"); return [r.status === 200, "HTTP " + r.status]; }],
-    ["POST /mcp  initialize", async () => {
+    ["Server is up (/healthz)", async () => { const r = await fetch("/healthz"); return [r.status === 200, "HTTP " + r.status]; }],
+    ["Connector starts (/mcp)", async () => {
       const r = await fetch("/mcp", {method: "POST", headers: hdr(key), body: rpc("initialize", init, 1)});
       const j = parseRpc(await r.text()); const n = j && j.result && j.result.serverInfo && j.result.serverInfo.name;
-      return [r.ok && !!n, "HTTP " + r.status + (n ? " server=" + n : "")]; }],
-    ["POST /mcp  tools/list", async () => {
+      return [r.ok && !!n, "HTTP " + r.status + (n ? ", " + n : "")]; }],
+    ["Tools are listed", async () => {
       const r = await fetch("/mcp", {method: "POST", headers: hdr(key), body: rpc("tools/list", {}, 2)});
       const j = parseRpc(await r.text()); const c = j && j.result && j.result.tools && j.result.tools.length;
-      return [r.ok && c > 0, "HTTP " + r.status + (c ? " " + c + " tools" : "")]; }],
-    ["POST /mcp  wrong key is rejected", async () => {
+      return [r.ok && c > 0, "HTTP " + r.status + (c ? ", " + c + " tools" : "")]; }],
+    ["Wrong key is refused", async () => {
       const r = await fetch("/mcp", {method: "POST", headers: hdr(key + "x"), body: rpc("initialize", init, 3)});
       return [r.status === 401, "HTTP " + r.status + (r.status === 401 ? " (correct)" : " (should be 401)")]; }],
-    ["POST /api/upload  key accepted", async () => {
+    ["Upload area accepts the key", async () => {
       const r = await fetch("/api/upload", {method: "POST", headers: {"Content-Type": "application/json", "X-Auth-Key": key},
-        body: JSON.stringify({action: "ping"})});
-      return [r.status !== 401 && r.status < 500, "HTTP " + r.status + (r.status === 401 ? " (key rejected)" : "")]; }],
+        body: JSON.stringify({action: "list"})});
+      return [r.status === 200, "HTTP " + r.status + (r.status === 401 ? " (key refused)" : "")]; }],
   ];
   let pass = 0;
   for (const [name, fn] of tests) {
-    try { const [ok, info] = await fn(); if (ok) pass++; logLine(box, ok ? "ok" : "bad", (ok ? "[ PASS ] " : "[ FAIL ] ") + name + "  " + info); }
-    catch (e) { logLine(box, "bad", "[ FAIL ] " + name + "  " + e.message); }
+    try {
+      const [ok, info] = await fn();
+      if (ok) pass++;
+      logLine(box, ok ? "ok" : "bad", (ok ? "Pass: " : "Fail: ") + name + " (" + info + ")");
+    } catch (e) { logLine(box, "bad", "Fail: " + name + " (" + e.message + ")"); }
   }
-  logLine(box, pass === tests.length ? "ok" : "warn", "-- " + pass + "/" + tests.length + " passed");
+  logLine(box, pass === tests.length ? "ok" : "warn", pass + " of " + tests.length + " checks passed.");
 });
 
-/* ---------- instagram session ---------- */
+/* instagram */
 function setTab(cookie) {
   show($("#formCookie"), cookie); show($("#formPass"), !cookie);
-  $("#tabCookie").className = cookie ? "on" : "alt"; $("#tabPass").className = cookie ? "alt" : "on";
+  $("#tabCookie").className = cookie ? "on" : ""; $("#tabPass").className = cookie ? "" : "on";
+  $("#tabCookie").setAttribute("aria-selected", String(cookie));
+  $("#tabPass").setAttribute("aria-selected", String(!cookie));
 }
 $("#tabCookie").addEventListener("click", () => setTab(true));
 $("#tabPass").addEventListener("click", () => setTab(false));
@@ -628,14 +759,18 @@ function report(r) {
   const box = $("#sessLog"); const d = r.data || {};
   if (r.status === 401) { boot(); return; }
   const cls = d.status === "success" ? "ok" : d.status === "error" ? "bad" : "warn";
-  logLine(box, cls, (d.status || "result").toUpperCase() + ": " + (d.message || JSON.stringify(d)));
+  logLine(box, cls, (d.message || JSON.stringify(d)));
   pendingCode = d.status === "needs_2fa" ? "2fa" : d.status === "needs_challenge" ? "challenge" : "";
   show($("#codeBox"), !!pendingCode);
-  $("#codeLabel").textContent = pendingCode === "2fa" ? "2FA CODE (AUTHENTICATOR APP)" : "CODE SENT TO EMAIL / SMS";
-  if (d.status === "success") { $("#sid").value = ""; $("#ipw").value = ""; loadApp(); }
+  $("#codeLabel").textContent = pendingCode === "2fa" ? "Code from your authenticator app" : "Code sent to your email or phone";
+  if (d.status === "success") {
+    $("#sid").value = ""; $("#ipw").value = "";
+    toast("Instagram is connected.");
+    loadApp();
+  }
 }
 async function sessionCall(body, btn) {
-  btn.disabled = true; logLine($("#sessLog"), "warn", "working...");
+  btn.disabled = true; logLine($("#sessLog"), "warn", "Working...");
   try { report(await api("session", body)); } finally { btn.disabled = false; }
 }
 $("#saveCookie").addEventListener("click", (e) => sessionCall({action: "cookie", sessionid: $("#sid").value, username: $("#sun").value}, e.target));
@@ -643,7 +778,27 @@ $("#savePass").addEventListener("click", (e) => sessionCall({action: "password",
 $("#sendCode").addEventListener("click", (e) => sessionCall({action: pendingCode || "2fa", code: $("#code").value}, e.target));
 $("#checkSession").addEventListener("click", (e) => sessionCall({action: "status"}, e.target));
 
-$("#logoutBtn").addEventListener("click", async () => { await api("logout", {}); location.hash = ""; boot(); });
+/* settings: how long uploads are kept */
+async function saveHours(value) {
+  const ok = $("#hoursOk"), err = $("#hoursErr");
+  ok.textContent = ""; err.textContent = "";
+  const r = await api("upload_settings", {retention_hours: value});
+  if (r.status === 401) { boot(); return; }
+  if (r.status !== 200) { err.textContent = r.data.error || "Could not save. Please try again."; return; }
+  $("#hours").value = r.data.retention_hours;
+  $("#homeKeep").textContent = r.data.retention_hours;
+  ok.textContent = "Saved. Files you do not post are kept for " + r.data.retention_hours + " hours.";
+  toast("Saved.");
+}
+$("#saveHours").addEventListener("click", () => saveHours(Number($("#hours").value)));
+$("#resetHours").addEventListener("click", () => { $("#hours").value = 48; saveHours(48); });
+
+/* sign out */
+async function signOut() { await api("logout", {}); accessKey = ""; location.hash = ""; boot(); }
+$("#logoutBtn").addEventListener("click", signOut);
+$("#logoutBtn2").addEventListener("click", signOut);
+
+route();
 boot();
 </script>
 </body>

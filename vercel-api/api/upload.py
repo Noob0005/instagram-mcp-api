@@ -72,6 +72,52 @@ async def _read_body(receive) -> bytes:
     return b"".join(chunks)
 
 
+MAX_VIEW_BYTES = 4 * 1024 * 1024  # a function response is limited to about 4.5 MB on Vercel
+
+
+async def _serve_media(scope, send) -> None:
+    """GET /api/upload?thumb=<id> or ?file=<id> (auth via ?auth= or header). Only indexed uploads."""
+    from urllib.parse import parse_qs
+    if not _authorized(scope):
+        await _send_json(send, 401, {"error": "unauthorized"})
+        return
+    query = parse_qs(scope.get("query_string", b"").decode("utf-8", "ignore"))
+    from instagram_mcp_server import blob_store, upload_store
+    if "thumb" in query:
+        upload_id, which = (query["thumb"][0] if query["thumb"] else ""), "thumb"
+    elif "file" in query:
+        upload_id, which = (query["file"][0] if query["file"] else ""), "file"
+    else:
+        await _send_json(send, 400, {"error": "pass ?thumb=<id> or ?file=<id>"})
+        return
+    rec = upload_store.get_upload(upload_id) if upload_id else None
+    if not rec:
+        await _send_json(send, 404, {"error": "not found"})
+        return
+    if which == "thumb":
+        data = upload_store.fetch_thumb(rec)
+        if not data:
+            await _send_json(send, 404, {"error": "no preview for this upload"})
+            return
+        content_type = "image/jpeg"
+    else:
+        if int(rec.get("size") or 0) > MAX_VIEW_BYTES:
+            await _send_json(send, 413, {"error": "too_big_to_view",
+                                         "hint": "This file is too big to open in the browser. Its preview is shown instead."})
+            return
+        try:
+            data = blob_store.get_bytes(rec["pathname"])
+        except Exception as exc:
+            await _send_json(send, 502, {"error": f"could not read the file: {exc}"})
+            return
+        content_type = rec.get("content_type") or "application/octet-stream"
+    await send({"type": "http.response.start", "status": 200,
+                "headers": [(b"content-type", content_type.encode()),
+                            (b"cache-control", b"private, max-age=300"),
+                            (b"x-content-type-options", b"nosniff")]})
+    await send({"type": "http.response.body", "body": data})
+
+
 async def app(scope, receive, send):
     if scope["type"] == "lifespan":
         await send({"type": "lifespan.startup.complete"})
@@ -83,8 +129,11 @@ async def app(scope, receive, send):
     if method == "OPTIONS":  # CORS preflight
         await _send_json(send, 204, {})
         return
+    if method == "GET":
+        await _serve_media(scope, send)
+        return
     if method != "POST":
-        await _send_json(send, 405, {"error": "use POST"})
+        await _send_json(send, 405, {"error": "use POST or GET"})
         return
     if not _authorized(scope):
         await _send_json(send, 401, {"error": "unauthorized",
@@ -98,7 +147,67 @@ async def app(scope, receive, send):
         return
 
     action = body.get("action", "")
-    from instagram_mcp_server import blob_store, upload_store
+    from instagram_mcp_server import blob_store, upload_settings, upload_store
+
+    if action == "list":
+        from instagram_mcp_server import upload_settings as _settings
+        try:
+            upload_store.purge_expired()  # uploads past the retention go first
+        except Exception:
+            pass  # listing still works if the cleanup step fails
+        retention = _settings.retention_hours()
+        items = []
+        for u in upload_store.list_uploads(status="pending"):
+            ts = float(u.get("uploaded_at") or 0)
+            items.append({
+                "id": u.get("id"), "filename": u.get("filename") or "", "title": u.get("title") or "",
+                "kind": u.get("kind") or "photo", "size": int(u.get("size") or 0),
+                "content_type": u.get("content_type") or "", "caption": u.get("caption") or "",
+                "uploaded_at": ts, "expires_at": ts + retention * 3600,
+                "has_thumb": bool(u.get("thumb_pathname")),
+            })
+        items.sort(key=lambda x: x["uploaded_at"], reverse=True)
+        await _send_json(send, 200, {"ok": True, "uploads": items, "retention_hours": retention})
+        return
+
+    if action == "rename":
+        upload_id = str(body.get("id") or "")
+        if not upload_id:
+            await _send_json(send, 400, {"ok": False, "error": "id is required"})
+            return
+        if not upload_store.set_title(upload_id, str(body.get("title") or "")):
+            await _send_json(send, 404, {"ok": False, "error": "that upload no longer exists"})
+            return
+        await _send_json(send, 200, {"ok": True})
+        return
+
+    if action == "delete":
+        upload_id = str(body.get("id") or "")
+        rec = upload_store.get_upload(upload_id) if upload_id else None
+        if not rec:
+            await _send_json(send, 404, {"ok": False, "error": "that upload no longer exists"})
+            return
+        try:
+            upload_store.delete_blob_file(rec)
+        except Exception as exc:
+            await _send_json(send, 500, {"ok": False, "error": f"could not delete the file: {exc}"})
+            return
+        upload_store.remove_upload(upload_id)
+        await _send_json(send, 200, {"ok": True})
+        return
+
+    if action == "settings":
+        await _send_json(send, 200, {"ok": True, **upload_settings.describe()})
+        return
+
+    if action == "settings_save":
+        try:
+            saved = upload_settings.set_retention_hours(body.get("retention_hours"))
+        except ValueError as exc:
+            await _send_json(send, 400, {"ok": False, "error": str(exc), **upload_settings.describe()})
+            return
+        await _send_json(send, 200, {"ok": True, **saved})
+        return
 
     if action == "begin":
         filename = str(body.get("filename") or "file")
@@ -146,4 +255,6 @@ async def app(scope, receive, send):
                                      "next": "ask the assistant to run list_uploads"})
         return
 
-    await _send_json(send, 400, {"error": "unknown action", "actions": ["begin", "commit"]})
+    await _send_json(send, 400, {"error": "unknown action",
+                                 "actions": ["begin", "commit", "list", "rename", "delete",
+                                             "settings", "settings_save"]})

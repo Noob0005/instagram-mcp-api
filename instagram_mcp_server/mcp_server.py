@@ -4100,6 +4100,44 @@ def preview_upload(upload_id: str) -> Image:
 
 
 @mcp.tool()
+def upload_from_url(
+    url: str,
+    caption: str = "",
+    kind: str = "auto",
+    aspect: str = "auto",
+    filename: str = "",
+    thumb_url: str = "",
+    page_url: str = "",
+):
+    """
+    Stage a photo or reel from a web link, without its bytes passing through the chat.
+    The server downloads the file and stores it like an Upload-page file. You get back
+    the new upload id and a small preview image to look at, so you can write a caption.
+      kind:   auto | photo | reel          aspect: auto | square | portrait | landscape | keep
+      caption: optional; you can also set it later with set_upload_caption
+      page_url: optional page the file lives on (e.g. a share page); its preview image is
+                 used when the file itself cannot be fetched
+      thumb_url: optional direct image link to use as the preview when the file itself
+                 cannot be fetched
+    If the server cannot fetch the file (blocked host, too big, or the link is a web
+    page), you get only the preview (the page's og:image, or thumb_url), and nothing is
+    stored. Then ask the person for a direct file link or to upload it on the Upload page.
+    """
+    from instagram_mcp_server import url_upload
+    try:
+        result = url_upload.pull(url, caption=caption, kind=kind, aspect=aspect,
+                                 filename=filename, thumb_url=thumb_url, page_url=page_url)
+    except url_upload.UrlUploadError as e:
+        return f"Could not use that link: {e}"
+    except Exception as e:
+        return f"Error pulling the link: {e}"
+    if not result.get("preview"):
+        return result["message"]
+    # FastMCP expands a list only when it holds an Image, so the preview travels as an image block.
+    return [Image(path=_write_image_temp(result["preview"], ".jpg"), format="jpeg"), result["message"]]
+
+
+@mcp.tool()
 def post_upload(upload_id: str, dry_run: Annotated[bool, Field(
     description="True = validate & convert WITHOUT posting; shows what would happen")] = False) -> str:
     """

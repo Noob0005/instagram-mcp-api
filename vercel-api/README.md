@@ -4,10 +4,12 @@ Serverless deployment of the Instagram MCP server. No PC has to stay on.
 
 - **MCP endpoint:** `https://<project>.vercel.app/mcp?auth=<MCP_AUTH_KEY>` — every tool
   from `instagram_mcp_server`, over Streamable HTTP.
-- **Dashboard:** `https://<project>.vercel.app/` — login, environment-variable checklist,
-  copyable MCP URL, endpoint tester, and an Instagram session form.
-- **Upload page:** `https://<project>.vercel.app/upload` — send photos/reels straight to Blob,
-  then ask the AI to preview and post them.
+- **Dashboard:** `https://<project>.vercel.app/` — a plain-language home page with a large
+  Upload button, plus Connect (address for your AI app and the browser extension), Instagram
+  (sign-in), Settings (how long uploads are kept) and Advanced (setup checklist and checks).
+- **Upload page:** `https://<project>.vercel.app/upload` — send photos/reels straight to Blob
+  with per-file progress, see what is waiting, and view, rename or delete it. The Settings
+  panel on that page sets how long unposted files are kept.
 - **Health check:** `/healthz` (open, no tool access).
 
 ## 1. Deploy
@@ -59,7 +61,7 @@ The dashboard's checklist shows the same list and flags missing or weak values.
 | `INSTAGRAM_MCP_SESSIONID` | optional | Cookie seed for cold-start login. |
 | `INSTAGRAM_MCP_SESSION_JSON` | optional | First-time seed only: an instagrapi settings JSON. Ignored once a session exists in Blob. |
 | `INSTAGRAM_MCP_USERNAME` / `INSTAGRAM_MCP_PASSWORD` | optional | Last-resort login. Avoid the password. |
-| `INSTAGRAM_MCP_UPLOAD_TTL_DAYS` | optional | Days before unposted uploads are purged. Default `7`. |
+| `INSTAGRAM_MCP_UPLOAD_TTL_DAYS` | removed | Replaced by the retention setting on the upload settings page (default 48 hours). |
 | `INSTAGRAM_MCP_MAX_UPLOAD_BYTES` | optional | Upload size limit. Default 256 MB. |
 | `INSTAGRAM_MCP_BLOB_PREFIX` | optional | Top-level Blob key prefix. Default `instagram-mcp`. |
 | `INSTAGRAM_MCP_BLOB_ACCESS` | optional | `private` (default, recommended) or `public`. Must match the store type. |
@@ -91,14 +93,17 @@ The key may also go in an `Authorization: Bearer <key>` or `X-Auth-Key` header i
 
 ## 5. Uploading photos and reels
 
-Open `/upload?auth=<MCP_AUTH_KEY>`, choose a file, and enter a caption and aspect. The
-browser sends the bytes straight to Vercel Blob, which skips the ~4.5 MB request-body
-limit. The file is added to the upload queue.
+Open `/upload?auth=<MCP_AUTH_KEY>` (or press **Upload** on the dashboard), choose files, and
+watch each one's progress bar. The browser sends the bytes straight to Vercel Blob, which
+skips the ~4.5 MB request-body limit. Under **My uploads** you can view a file (up to 4 MB
+can be opened in the page; larger ones show their preview), rename it (the file name stays
+the same), or delete it. Settings sets how long unposted files are kept.
 
 Then ask your AI to use these tools:
 
 | Tool | What it does |
 | --- | --- |
+| `upload_from_url` | Stores a photo or reel from a web link. The server downloads it, so the bytes never enter the chat. Returns the upload id and a small preview. If the file is blocked, returns only the preview (from `page_url` or `thumb_url`), and stores nothing. |
 | `list_uploads` | Lists pending uploads with caption, size and kind. |
 | `preview_upload` | Returns a small thumbnail so the AI can see the image. |
 | `post_upload` | Validates and converts the file, posts it, then deletes the Blob copy. |
@@ -111,12 +116,18 @@ Then ask your AI to use these tools:
 **Reels (upload page):** must be MP4 with H.264 video and AAC audio. MOV, WebM and HEVC are
 rejected and logged, not converted, because Vercel has no ffmpeg.
 
+**Links** (`upload_from_url`): only public http(s) addresses. Every host and redirect is
+checked against private and local addresses. Downloads are capped at 100 MB and 45 seconds.
+
 **Reels from a public URL** (`instagram_post_reel` with `https://…`): the file must really be
 MP4 (H.264 + AAC). The check reads the file's bytes. Anything else returns
 `Error: reel rejected: …` and nothing is uploaded.
 
-**Cleanup:** the Blob copy is deleted after a successful post. A daily cron at 04:00 UTC
-(`vercel.json` → `/api/cleanup`) purges unposted uploads older than `INSTAGRAM_MCP_UPLOAD_TTL_DAYS`.
+**Cleanup and retention:** unposted files are removed after the retention saved on the upload
+settings page (default 48 hours, allowed 1–720). The list action and the daily cron at
+04:00 UTC (`vercel.json` → `/api/cleanup`) both apply it. Hobby plans run cron once a day, so a
+file can stay up to about 72 hours unless someone lists uploads sooner.
+The Blob copy is deleted after a successful post.
 
 ## 6. Security
 

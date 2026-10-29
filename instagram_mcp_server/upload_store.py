@@ -16,13 +16,15 @@ Flow:
      deletes the Blob copy.
   4. Anything rejected (bad image, non-MP4 reel, corrupt file) is recorded in
      <prefix>/uploads/problems.json and shown by list_problems.
-  5. A daily cron (api/cleanup.py) drops unposted uploads older than 7 days.
+  5. A daily cron (api/cleanup.py) drops unposted uploads older than the saved
+     retention (default 48 hours; see upload_settings.py).
 
 Local/disk mode: when Blob is not configured, entries are kept in a JSON file
 under the state dir and files are expected on local disk (`local_path`). This
 keeps the tools usable on desktop/Termux without any cloud storage.
 """
 
+import copy
 import json
 import os
 import sys
@@ -31,9 +33,8 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from instagram_mcp_server import blob_store
+from instagram_mcp_server import blob_store, upload_settings
 
-MAX_AGE_DAYS_DEFAULT = 7
 INDEX_DEFAULT: Dict[str, Any] = {"uploads": []}
 PROBLEMS_DEFAULT: Dict[str, Any] = {"problems": []}
 
@@ -110,7 +111,7 @@ def add_upload(*, filename: str, pathname: str, url: Optional[str], size: int,
         return None
 
     if blob_available():
-        blob_store.update_json(blob_store.index_key(), mutate, INDEX_DEFAULT.copy())
+        blob_store.update_json(blob_store.index_key(), mutate, copy.deepcopy(INDEX_DEFAULT))
     else:
         _mutate_local(mutate)
     return rec
@@ -119,8 +120,8 @@ def add_upload(*, filename: str, pathname: str, url: Optional[str], size: int,
 def _mutate_local(mutate) -> None:
     """Apply `mutate` to the local index bucket only."""
     path = _local_index_path()
-    doc = _read_local(path, {"index": INDEX_DEFAULT.copy(), "problems": PROBLEMS_DEFAULT.copy()})
-    index = doc.get("index") or INDEX_DEFAULT.copy()
+    doc = _read_local(path, {"index": copy.deepcopy(INDEX_DEFAULT), "problems": copy.deepcopy(PROBLEMS_DEFAULT)})
+    index = doc.get("index") or copy.deepcopy(INDEX_DEFAULT)
     out = mutate(index)
     if out is not None:
         doc["index"] = out
@@ -129,8 +130,8 @@ def _mutate_local(mutate) -> None:
 
 def _mutate_local_problems(mutate) -> None:
     path = _local_index_path()
-    doc = _read_local(path, {"index": INDEX_DEFAULT.copy(), "problems": PROBLEMS_DEFAULT.copy()})
-    problems = doc.get("problems") or PROBLEMS_DEFAULT.copy()
+    doc = _read_local(path, {"index": copy.deepcopy(INDEX_DEFAULT), "problems": copy.deepcopy(PROBLEMS_DEFAULT)})
+    problems = doc.get("problems") or copy.deepcopy(PROBLEMS_DEFAULT)
     out = mutate(problems)
     if out is not None:
         doc["problems"] = out
@@ -139,9 +140,9 @@ def _mutate_local_problems(mutate) -> None:
 
 def list_uploads(status: Optional[str] = "pending") -> List[Dict[str, Any]]:
     if blob_available():
-        doc = blob_store.get_json(blob_store.index_key(), INDEX_DEFAULT.copy()) or INDEX_DEFAULT.copy()
+        doc = blob_store.get_json(blob_store.index_key(), copy.deepcopy(INDEX_DEFAULT)) or copy.deepcopy(INDEX_DEFAULT)
     else:
-        doc = _read_local(_local_index_path(), {}).get("index") or INDEX_DEFAULT.copy()
+        doc = _read_local(_local_index_path(), {}).get("index") or copy.deepcopy(INDEX_DEFAULT)
     items = [u for u in (doc.get("uploads") or []) if isinstance(u, dict)]
     if status:
         items = [u for u in items if u.get("status", "pending") == status]
@@ -171,7 +172,7 @@ def set_status(upload_id: str, status: str, note: str = "") -> bool:
         return index
 
     if blob_available():
-        blob_store.update_json(blob_store.index_key(), mutate, INDEX_DEFAULT.copy())
+        blob_store.update_json(blob_store.index_key(), mutate, copy.deepcopy(INDEX_DEFAULT))
     else:
         _mutate_local(mutate)
     return changed["v"]
@@ -192,7 +193,28 @@ def set_caption(upload_id: str, caption: str) -> bool:
         return index
 
     if blob_available():
-        blob_store.update_json(blob_store.index_key(), mutate, INDEX_DEFAULT.copy())
+        blob_store.update_json(blob_store.index_key(), mutate, copy.deepcopy(INDEX_DEFAULT))
+    else:
+        _mutate_local(mutate)
+    return changed["v"]
+
+
+def set_title(upload_id: str, title: str) -> bool:
+    """Set the display name shown on the upload page. The stored file is not renamed. True when found."""
+    changed = {"v": False}
+
+    def mutate(index):
+        if not isinstance(index, dict):
+            return None
+        for u in index.get("uploads") or []:
+            if u.get("id") == upload_id:
+                u["title"] = (title or "").strip()[:120]
+                u["updated_at"] = time.time()
+                changed["v"] = True
+        return index
+
+    if blob_available():
+        blob_store.update_json(blob_store.index_key(), mutate, copy.deepcopy(INDEX_DEFAULT))
     else:
         _mutate_local(mutate)
     return changed["v"]
@@ -225,7 +247,7 @@ def remove_upload(upload_id: str) -> Optional[Dict[str, Any]]:
         return index
 
     if blob_available():
-        blob_store.update_json(blob_store.index_key(), mutate, INDEX_DEFAULT.copy())
+        blob_store.update_json(blob_store.index_key(), mutate, copy.deepcopy(INDEX_DEFAULT))
     else:
         _mutate_local(mutate)
     return removed[0] if removed else None
@@ -258,7 +280,7 @@ def add_problem(*, upload_id: Optional[str], filename: str, reason: str,
         return problems
 
     if blob_available():
-        blob_store.update_json(blob_store.problems_key(), mutate, PROBLEMS_DEFAULT.copy())
+        blob_store.update_json(blob_store.problems_key(), mutate, copy.deepcopy(PROBLEMS_DEFAULT))
     else:
         _mutate_local_problems(mutate)
     return rec
@@ -266,9 +288,9 @@ def add_problem(*, upload_id: Optional[str], filename: str, reason: str,
 
 def list_problems(limit: int = 50) -> List[Dict[str, Any]]:
     if blob_available():
-        doc = blob_store.get_json(blob_store.problems_key(), PROBLEMS_DEFAULT.copy()) or PROBLEMS_DEFAULT.copy()
+        doc = blob_store.get_json(blob_store.problems_key(), copy.deepcopy(PROBLEMS_DEFAULT)) or copy.deepcopy(PROBLEMS_DEFAULT)
     else:
-        doc = _read_local(_local_index_path(), {}).get("problems") or PROBLEMS_DEFAULT.copy()
+        doc = _read_local(_local_index_path(), {}).get("problems") or copy.deepcopy(PROBLEMS_DEFAULT)
     items = [p for p in (doc.get("problems") or []) if isinstance(p, dict)]
     return items[:limit]
 
@@ -309,9 +331,11 @@ def delete_blob_file(rec: Dict[str, Any]) -> None:
             pass
 
 
-def purge_expired(days: int = MAX_AGE_DAYS_DEFAULT) -> Dict[str, Any]:
-    """Delete uploads older than `days` that were never posted. Cron-friendly."""
-    cutoff = time.time() - days * 86400
+def purge_expired(hours: Optional[float] = None) -> Dict[str, Any]:
+    """Delete unposted uploads older than `hours` (default: the saved retention). Cron-friendly."""
+    if hours is None:
+        hours = upload_settings.retention_hours()
+    cutoff = time.time() - float(hours) * 3600
     deleted: List[str] = []
     errors: List[str] = []
 
@@ -334,7 +358,7 @@ def purge_expired(days: int = MAX_AGE_DAYS_DEFAULT) -> Dict[str, Any]:
         return index
 
     if blob_available():
-        blob_store.update_json(blob_store.index_key(), mutate, INDEX_DEFAULT.copy())
+        blob_store.update_json(blob_store.index_key(), mutate, copy.deepcopy(INDEX_DEFAULT))
     else:
         _mutate_local(mutate)
-    return {"deleted": deleted, "errors": errors, "cutoff_days": days}
+    return {"deleted": deleted, "errors": errors, "retention_hours": hours}
