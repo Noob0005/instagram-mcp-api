@@ -159,10 +159,17 @@ def list_prefix(prefix: str) -> List[Dict[str, Any]]:
 # JSON documents (index / problem log) with read-modify-write helpers
 # ---------------------------------------------------------------------------
 
-def get_json(pathname: str, default: Any = None) -> Any:
+def get_json(pathname: str, default: Any = None, strict: bool = False) -> Any:
+    """Read a JSON document. Read-only callers get `default` on any failure (logged);
+    read-modify-write callers pass strict=True so a read error is never written back as empty."""
     try:
         raw = get_bytes(pathname)
     except FileNotFoundError:
+        return default
+    except Exception as e:
+        if strict:
+            raise
+        print(f"[blob_store] could not read {pathname}: {type(e).__name__}: {e}")
         return default
     if not raw.strip():
         return default
@@ -179,7 +186,7 @@ def put_json(pathname: str, value: Any) -> Dict[str, Any]:
 
 def update_json(pathname: str, mutate, default: Any) -> Any:
     """Read a JSON doc, apply `mutate(doc)` and write it back. Returns the new doc."""
-    doc = get_json(pathname, default)
+    doc = get_json(pathname, default, strict=True)
     if doc is None:
         doc = default
     mutated = mutate(doc)
