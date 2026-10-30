@@ -1,5 +1,9 @@
 // Mints short-lived Vercel Blob client-upload tokens so the browser can upload large photos/reels
 // straight to Blob without exposing BLOB_READ_WRITE_TOKEN. Requires the MCP key in clientPayload.
+//
+// Written as a plain Node (req, res) handler. Vercel's Node runtime ignores a Response that a
+// handler returns, so the earlier Web-style handler never answered and hung until the 300 s
+// timeout (every upload stalled at "Uploading").
 import { handleUpload } from '@vercel/blob/client';
 import { timingSafeEqual } from 'node:crypto';
 
@@ -18,16 +22,50 @@ function keyOk(candidate) {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-export default async function handler(request) {
-  if (request.method !== 'POST') {
-    return Response.json({ error: 'use POST' }, { status: 405 });
+function send(res, status, payload) {
+  res.statusCode = status;
+  res.setHeader('content-type', 'application/json');
+  res.end(JSON.stringify(payload));
+}
+
+function readBody(req) {
+  // Vercel may already have parsed a JSON body; otherwise read the stream.
+  if (req.body !== undefined && req.body !== null) {
+    return Promise.resolve(typeof req.body === 'string' ? req.body : JSON.stringify(req.body));
+  }
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', (c) => chunks.push(c));
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    req.on('error', reject);
+  });
+}
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') return send(res, 405, { error: 'use POST' });
+
+  let raw;
+  try {
+    raw = await readBody(req);
+  } catch {
+    return send(res, 400, { error: 'could not read the request' });
   }
   let body;
   try {
-    body = await request.json();
+    body = JSON.parse(raw || '{}');
   } catch {
-    return Response.json({ error: 'body must be JSON' }, { status: 400 });
+    return send(res, 400, { error: 'body must be JSON' });
   }
+
+  // handleUpload wants a standard Request; rebuild one from the request we were given.
+  const headers = {};
+  for (const [k, v] of Object.entries(req.headers || {})) {
+    if (typeof v === 'string' && k !== 'content-length') headers[k] = v;
+  }
+  const request = new Request(`https://${req.headers.host || 'localhost'}${req.url || '/api/blob-token'}`, {
+    method: 'POST', headers, body: raw,
+  });
+
   try {
     const result = await handleUpload({
       body,
@@ -47,9 +85,9 @@ export default async function handler(request) {
         };
       },
     });
-    return Response.json(result);
+    return send(res, 200, result);
   } catch (e) {
     const status = e.message === 'unauthorized' ? 401 : 400;
-    return Response.json({ error: e.message }, { status });
+    return send(res, status, { error: e.message });
   }
 }
