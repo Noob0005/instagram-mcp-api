@@ -112,10 +112,13 @@ def put_bytes(key: str, data: bytes, content_type: str = "application/octet-stre
 
 
 def get_bytes(pathname_or_url: str) -> bytes:
-    """Download a Blob's contents (never from cache). Accepts a pathname or a full URL."""
+    """Download a Blob's contents. Accepts a pathname or a full URL.
+
+    use_cache=True means no `?cache=0` query is added: this store answers that query with
+    400 Bad Request, so every read of an existing file failed and the library stayed empty."""
     sdk = _sdk()
     try:
-        res = sdk.get(pathname_or_url, access=BLOB_ACCESS, token=_token(), use_cache=False)
+        res = sdk.get(pathname_or_url, access=BLOB_ACCESS, token=_token(), use_cache=True)
     except sdk.BlobNotFoundError as e:
         raise FileNotFoundError(f"Blob object not found: {pathname_or_url}") from e
     if res is None or getattr(res, "status_code", 200) == 404 or res.content is None:
