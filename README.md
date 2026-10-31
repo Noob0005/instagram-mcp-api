@@ -516,12 +516,13 @@ write actions before anything else is attempted.
 
 | Env var | Default | Purpose |
 | --- | --- | --- |
-| `INSTAGRAM_MCP_COMMENT_DELAY_MIN` / `_MAX` | 5 / 12 | seconds waited before a comment/reply (Safe Mode: 90 / 240) |
-| `INSTAGRAM_MCP_POST_DELAY_MIN` / `_MAX` | 15 / 40 | seconds waited before posting (Safe Mode: 300 / 900) |
-| `INSTAGRAM_MCP_LIKE_DELAY_MIN` / `_MAX` | 3 / 8 | likes (Safe Mode: 60 / 180) |
-| `INSTAGRAM_MCP_DM_DELAY_MIN` / `_MAX` | 4 / 10 | direct messages (Safe Mode: 120 / 300) |
-| `INSTAGRAM_MCP_SOCIAL_DELAY_MIN` / `_MAX` | 10 / 25 | follows / blocks (Safe Mode: 300 / 600) |
-| `INSTAGRAM_MCP_ACTION_DELAY_MIN` / `_MAX` | 2 / 6 | saves and other private actions |
+| `INSTAGRAM_MCP_COMMENT_DELAY_MIN` / `_MAX` | 0 / 0 | seconds waited before a comment/reply (Safe Mode: 90 / 240) |
+| `INSTAGRAM_MCP_POST_DELAY_MIN` / `_MAX` | 0 / 0 | seconds waited before posting (Safe Mode: 300 / 900) |
+| `INSTAGRAM_MCP_LIKE_DELAY_MIN` / `_MAX` | 0 / 0 | likes (Safe Mode: 60 / 180) |
+| `INSTAGRAM_MCP_DM_DELAY_MIN` / `_MAX` | 0 / 0 | direct messages (Safe Mode: 120 / 300) |
+| `INSTAGRAM_MCP_SOCIAL_DELAY_MIN` / `_MAX` | 0 / 0 | follows / blocks (Safe Mode: 300 / 600) |
+| `INSTAGRAM_MCP_ACTION_DELAY_MIN` / `_MAX` | 0 / 0 | saves and other private actions |
+| `INSTAGRAM_MCP_REQUEST_DELAY_MAX` | 0 | random pause (seconds) up to this between Instagram requests inside one tool call |
 | `INSTAGRAM_MCP_DEDUPE_WINDOW` | 600 | seconds an identical action (same target + content) is suppressed — protects against client-timeout retries double-sending |
 | `INSTAGRAM_MCP_MAX_COMMENTS_PER_HOUR` | 10 | local cap for comments/replies |
 | `INSTAGRAM_MCP_RATE_LIMIT_PAUSE` | 900 | pause length after Instagram rate-limits an action |
