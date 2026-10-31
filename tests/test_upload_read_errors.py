@@ -29,5 +29,33 @@ class ReadErrorTests(unittest.TestCase):
             self.assertEqual(blob_store.get_json("missing.json", []), [])
 
 
+class MissingFileAnsweredWith400Tests(unittest.TestCase):
+    """The store answers a missing file with 400. That must start an empty document, but a file
+    that is really there must still stop the write when it cannot be read."""
+
+    def test_missing_file_with_400_starts_an_empty_document(self):
+        put = mock.Mock()
+        err = RuntimeError("Client error '400 Bad Request' for url .../index.json")
+        with mock.patch.object(blob_store, "get_bytes", side_effect=err), \
+                mock.patch.object(blob_store, "list_prefix", return_value=[]), \
+                mock.patch.object(blob_store, "put_bytes", put):
+            doc = blob_store.update_json("instagram-mcp/uploads/index.json",
+                                         lambda d: d["uploads"].append({"id": "1"}),
+                                         {"uploads": []})
+        self.assertEqual(doc, {"uploads": [{"id": "1"}]})
+        put.assert_called_once()
+
+    def test_400_on_a_file_that_exists_still_stops_the_write(self):
+        put = mock.Mock()
+        err = RuntimeError("Client error '400 Bad Request' for url .../index.json")
+        listing = [{"pathname": "instagram-mcp/uploads/index.json"}]
+        with mock.patch.object(blob_store, "get_bytes", side_effect=err), \
+                mock.patch.object(blob_store, "list_prefix", return_value=listing), \
+                mock.patch.object(blob_store, "put_bytes", put):
+            with self.assertRaises(RuntimeError):
+                blob_store.update_json("instagram-mcp/uploads/index.json", lambda d: d, {"uploads": []})
+        put.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
