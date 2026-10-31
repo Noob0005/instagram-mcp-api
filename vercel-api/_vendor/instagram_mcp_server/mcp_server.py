@@ -645,9 +645,10 @@ def _pacing_error(action: str) -> Optional[str]:
     return None
 
 def _pace_action(action: str) -> int:
-    """Sleep a human-like, configurable delay before a write action.
+    """Optional pause before a write action. No pause by default.
 
-    action: "comment"/"reply", "post", or "engage" (likes, saves, follows, DMs).
+    Add pauses with INSTAGRAM_MCP_<KIND>_DELAY_MIN/_MAX, or INSTAGRAM_MCP_SAFE_MODE=1 for long ones.
+    action: "comment"/"reply", "post", "like", "social", "dm", or "engage"/other (saves, private actions).
     Returns the number of seconds waited (reported in tool output).
     """
     if action in _COMMENT_ACTIONS:
@@ -657,7 +658,7 @@ def _pace_action(action: str) -> int:
         elif _safe_mode():
             lo, hi = 90.0, 240.0
         else:
-            lo, hi = 5.0, 12.0
+            lo, hi = 0.0, 0.0
     elif action == "post":
         if "INSTAGRAM_MCP_POST_DELAY_MIN" in os.environ or "INSTAGRAM_MCP_POST_DELAY_MAX" in os.environ:
             lo = _cfg_float("INSTAGRAM_MCP_POST_DELAY_MIN", 15.0)
@@ -665,7 +666,7 @@ def _pace_action(action: str) -> int:
         elif _safe_mode():
             lo, hi = 300.0, 900.0
         else:
-            lo, hi = 15.0, 40.0
+            lo, hi = 0.0, 0.0
     elif action == "like":
         if "INSTAGRAM_MCP_LIKE_DELAY_MIN" in os.environ or "INSTAGRAM_MCP_LIKE_DELAY_MAX" in os.environ:
             lo = _cfg_float("INSTAGRAM_MCP_LIKE_DELAY_MIN", 3.0)
@@ -673,7 +674,7 @@ def _pace_action(action: str) -> int:
         elif _safe_mode():
             lo, hi = 60.0, 180.0
         else:
-            lo, hi = 3.0, 8.0
+            lo, hi = 0.0, 0.0
     elif action == "social":
         if "INSTAGRAM_MCP_SOCIAL_DELAY_MIN" in os.environ or "INSTAGRAM_MCP_SOCIAL_DELAY_MAX" in os.environ:
             lo = _cfg_float("INSTAGRAM_MCP_SOCIAL_DELAY_MIN", 10.0)
@@ -681,7 +682,7 @@ def _pace_action(action: str) -> int:
         elif _safe_mode():
             lo, hi = 300.0, 600.0
         else:
-            lo, hi = 10.0, 25.0
+            lo, hi = 0.0, 0.0
     elif action == "dm":
         if "INSTAGRAM_MCP_DM_DELAY_MIN" in os.environ or "INSTAGRAM_MCP_DM_DELAY_MAX" in os.environ:
             lo = _cfg_float("INSTAGRAM_MCP_DM_DELAY_MIN", 4.0)
@@ -689,7 +690,7 @@ def _pace_action(action: str) -> int:
         elif _safe_mode():
             lo, hi = 120.0, 300.0
         else:
-            lo, hi = 4.0, 10.0
+            lo, hi = 0.0, 0.0
     else:
         if "INSTAGRAM_MCP_ACTION_DELAY_MIN" in os.environ or "INSTAGRAM_MCP_ACTION_DELAY_MAX" in os.environ:
             lo = _cfg_float("INSTAGRAM_MCP_ACTION_DELAY_MIN", 2.0)
@@ -697,7 +698,7 @@ def _pace_action(action: str) -> int:
         elif _safe_mode():
             lo, hi = 30.0, 120.0
         else:
-            lo, hi = 2.0, 6.0
+            lo, hi = 0.0, 0.0
     if hi < lo:
         lo, hi = hi, lo
     delay = random.uniform(lo, hi) if hi > 0 else 0.0
