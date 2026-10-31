@@ -380,10 +380,31 @@ def describe_uploads(upload_ids: List[str]) -> Dict[str, Any]:
     return {"files": found, "missing": missing, "total_mb": round(total, 2)}
 
 
+def remove_uploads(upload_ids: List[str]) -> None:
+    """Drop several records from the index in one write. The files must already be gone."""
+    wanted = set(upload_ids)
+    if not wanted:
+        return
+
+    def mutate(index):
+        if not isinstance(index, dict):
+            return None
+        index["uploads"] = [u for u in (index.get("uploads") or []) if u.get("id") not in wanted]
+        return index
+
+    if blob_available():
+        blob_store.update_json(blob_store.index_key(), mutate, copy.deepcopy(INDEX_DEFAULT))
+    else:
+        _mutate_local(mutate)
+
+
 def delete_uploads(upload_ids: List[str]) -> Dict[str, Any]:
-    """Delete the files and their records for these ids. Callers must have confirmed first."""
+    """Delete the files and their records for these ids. Callers must have confirmed first.
+
+    A file that cannot be deleted keeps its record, so it stays visible and can be retried.
+    """
     by_id = {u.get("id"): u for u in list_uploads(status=None)}
-    deleted, failed, freed = [], [], 0
+    failed, gone = [], []
     for upload_id in dict.fromkeys(upload_ids):  # dedupe, keep order
         rec = by_id.get(upload_id)
         if rec is None:
@@ -394,9 +415,11 @@ def delete_uploads(upload_ids: List[str]) -> Dict[str, Any]:
         except Exception as exc:
             failed.append({"id": upload_id, "filename": rec.get("filename"), "error": str(exc)[:200]})
             continue
-        remove_upload(upload_id)
-        freed += int(rec.get("size") or 0)
-        deleted.append({"id": upload_id, "filename": rec.get("filename")})
+        gone.append(rec)
+    if gone:
+        remove_uploads([r.get("id") for r in gone])
+    deleted = [{"id": r.get("id"), "filename": r.get("filename")} for r in gone]
+    freed = sum(int(r.get("size") or 0) for r in gone)
     return {"deleted": deleted, "failed": failed, "freed_mb": round(freed / 1024 ** 2, 2)}
 
 

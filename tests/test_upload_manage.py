@@ -152,5 +152,59 @@ class MediaReadTests(unittest.TestCase):
         self.assertEqual(call("PUT", body={})[0], 405)
 
 
+MB_BYTES = 1024 * 1024
+
+
+def _left():
+    return sorted(u["id"] for u in upload_store.list_uploads(status=None))
+
+
+class BulkDeleteAndStorageApiTests(unittest.TestCase):
+    def setUp(self):
+        reset()
+
+    def test_delete_many_removes_only_the_chosen_files(self):
+        a = add("a.jpg", size=2 * MB_BYTES)
+        b = add("b.jpg", size=3 * MB_BYTES)
+        status, data = call(body={"action": "delete_many", "ids": [a]})
+        self.assertEqual(status, 200)
+        self.assertEqual([d["id"] for d in data["deleted"]], [a])
+        self.assertEqual(data["failed"], [])
+        self.assertEqual(data["freed_mb"], 2.0)
+        self.assertEqual(_left(), [b])
+
+    def test_delete_many_reports_unknown_ids_without_stopping(self):
+        a = add("a.jpg")
+        status, data = call(body={"action": "delete_many", "ids": ["ghost", a]})
+        self.assertEqual(status, 200)
+        self.assertEqual([f["id"] for f in data["failed"]], ["ghost"])
+        self.assertEqual([d["id"] for d in data["deleted"]], [a])
+        self.assertEqual(_left(), [])
+
+    def test_delete_many_refuses_an_empty_pick(self):
+        status, data = call(body={"action": "delete_many", "ids": []})
+        self.assertEqual(status, 400)
+        self.assertIn("at least one", data["error"])
+
+    def test_delete_many_refuses_more_than_200_at_once(self):
+        status, data = call(body={"action": "delete_many", "ids": [f"x{i}" for i in range(201)]})
+        self.assertEqual(status, 400)
+        self.assertIn("200", data["error"])
+
+    def test_storage_reports_what_is_used_and_the_allowance(self):
+        add("a.jpg", size=2 * MB_BYTES)
+        status, data = call(body={"action": "storage"})
+        self.assertEqual(status, 200)
+        self.assertEqual(data["used_mb"], 2.0)
+        self.assertEqual(data["limit_gb"], 1.0)
+        self.assertEqual(data["files"], 1)
+
+    def test_unknown_action_lists_the_new_ones(self):
+        status, data = call(body={"action": "nope"})
+        self.assertEqual(status, 400)
+        self.assertIn("delete_many", data["actions"])
+        self.assertIn("storage", data["actions"])
+
+
 if __name__ == "__main__":
     unittest.main()
