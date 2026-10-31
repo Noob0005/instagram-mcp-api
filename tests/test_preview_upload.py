@@ -55,5 +55,25 @@ class PreviewUploadTests(unittest.TestCase):
         self.assertIn("store down", result.content[0].text)
 
 
+class PreviewViewLinkTests(unittest.TestCase):
+    def _text(self, result):
+        return " ".join(b.text for b in result.content if hasattr(b, "text"))
+
+    def test_the_note_carries_a_signed_view_link_and_not_the_server_key(self):
+        env = {"MCP_AUTH_KEY": "test-key-for-preview-link-0123456789",
+               "INSTAGRAM_MCP_PUBLIC_URL": "https://insta.example/mcp"}
+        with mock.patch.dict(os.environ, env):
+            text = self._text(asyncio.run(_call()))
+        self.assertIn("https://insta.example/api/upload?file=x1&exp=", text)
+        self.assertIn("&sig=", text)
+        self.assertNotIn(env["MCP_AUTH_KEY"], text)
+
+    def test_without_the_server_key_the_note_says_there_is_no_link(self):
+        env = {"MCP_AUTH_KEY": "", "INSTAGRAM_MCP_PUBLIC_URL": "https://insta.example"}
+        with mock.patch.dict(os.environ, env):
+            text = self._text(asyncio.run(_call()))
+        self.assertIn("No view link for this upload.", text)
+
+
 if __name__ == "__main__":
     unittest.main()
