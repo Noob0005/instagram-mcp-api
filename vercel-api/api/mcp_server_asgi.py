@@ -24,7 +24,7 @@ _VENDOR = Path(__file__).resolve().parent.parent / "_vendor"
 if _VENDOR.is_dir() and str(_VENDOR) not in sys.path:
     sys.path.insert(0, str(_VENDOR))
 
-from instagram_mcp_server.mcp_server import mcp  # noqa: E402
+from instagram_mcp_server.mcp_server import mcp, note_request_base  # noqa: E402
 
 
 MCP_PATH = "/api/main"  # path of this function on Vercel (vercel.json maps /mcp here)
@@ -55,6 +55,16 @@ def _header(scope, name: str) -> str:
         if key.decode().lower() == name:
             return value.decode()
     return ""
+
+
+def _public_origin(scope) -> tuple:
+    """Scheme and host the client reached us through. Vercel passes x-forwarded-proto and host.
+
+    Recorded before the auth check, but it only shapes the view links returned to the caller
+    who made this request, so it cannot send a link to anyone else."""
+    scheme = _header(scope, "x-forwarded-proto") or scope.get("scheme") or "https"
+    host = _header(scope, "x-forwarded-host") or _header(scope, "host")
+    return scheme, host
 
 
 def _authorized(scope) -> bool:
@@ -90,6 +100,7 @@ async def app(scope, receive, send):
         return
 
     if scope["type"] == "http":
+        note_request_base(*_public_origin(scope))  # signed view links use the domain the client reached
         path = scope.get("path", "")
         if path in ("/healthz", "/api/healthz"):
             await _send_json(send, 200, '{"status":"ok","server":"instagram-mcp","stateless":true}')
