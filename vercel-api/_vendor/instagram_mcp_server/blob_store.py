@@ -159,6 +159,21 @@ def list_prefix(prefix: str) -> List[Dict[str, Any]]:
 # JSON documents (index / problem log) with read-modify-write helpers
 # ---------------------------------------------------------------------------
 
+def _missing_answer(exc: Exception) -> bool:
+    """This store answers a missing file with 400 rather than 404, so either code can mean 'not there'."""
+    code = getattr(getattr(exc, "response", None), "status_code", None)
+    text = str(exc)
+    return code in (400, 404) or "400 Bad Request" in text or "404 Not Found" in text
+
+
+def _really_missing(pathname: str) -> bool:
+    """A listing decides whether the file exists. If the listing itself fails, assume it exists."""
+    try:
+        return not any(item.get("pathname") == pathname for item in list_prefix(pathname))
+    except Exception:
+        return False
+
+
 def get_json(pathname: str, default: Any = None, strict: bool = False) -> Any:
     """Read a JSON document. Read-only callers get `default` on any failure (logged);
     read-modify-write callers pass strict=True so a read error is never written back as empty."""
@@ -167,6 +182,8 @@ def get_json(pathname: str, default: Any = None, strict: bool = False) -> Any:
     except FileNotFoundError:
         return default
     except Exception as e:
+        if _missing_answer(e) and _really_missing(pathname):
+            return default  # a file that does not exist yet (first upload, no settings saved)
         if strict:
             raise
         print(f"[blob_store] could not read {pathname}: {type(e).__name__}: {e}")
