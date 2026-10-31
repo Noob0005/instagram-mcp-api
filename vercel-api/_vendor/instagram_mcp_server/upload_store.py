@@ -16,8 +16,8 @@ Flow:
      deletes the Blob copy.
   4. Anything rejected (bad image, non-MP4 reel, corrupt file) is recorded in
      <prefix>/uploads/problems.json and shown by list_problems.
-  5. A daily cron (api/cleanup.py) drops unposted uploads older than the saved
-     retention (default 48 hours; see upload_settings.py).
+  5. Nothing is removed automatically. Uploads stay until they are deleted by hand
+     (the upload Library, or the delete_uploads MCP tool).
 
 Local/disk mode: when Blob is not configured, entries are kept in a JSON file
 under the state dir and files are expected on local disk (`local_path`). This
@@ -33,7 +33,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from instagram_mcp_server import blob_store, upload_settings
+from instagram_mcp_server import blob_store
 
 INDEX_DEFAULT: Dict[str, Any] = {"uploads": []}
 PROBLEMS_DEFAULT: Dict[str, Any] = {"problems": []}
@@ -331,34 +331,94 @@ def delete_blob_file(rec: Dict[str, Any]) -> None:
             pass
 
 
-def purge_expired(hours: Optional[float] = None) -> Dict[str, Any]:
-    """Delete unposted uploads older than `hours` (default: the saved retention). Cron-friendly."""
-    if hours is None:
-        hours = upload_settings.retention_hours()
-    cutoff = time.time() - float(hours) * 3600
-    deleted: List[str] = []
-    errors: List[str] = []
+def _storage_limit_gb() -> float:
+    """The plan's storage allowance. Hobby includes 1 GB; override with INSTAGRAM_MCP_STORAGE_LIMIT_GB."""
+    try:
+        return max(0.001, float(os.environ.get("INSTAGRAM_MCP_STORAGE_LIMIT_GB", "1")))
+    except ValueError:
+        return 1.0
+
+
+def storage_usage() -> Dict[str, Any]:
+    """Bytes used by staged files (media and previews) against the storage allowance."""
+    if blob_available():
+        objects = blob_store.list_prefix(blob_store.PREFIX + "/uploads/")  # capped at 1000 objects
+        used = sum(int(o.get("size") or 0) for o in objects)
+        count = len(objects)
+    else:
+        items = list_uploads(status=None)
+        used = sum(int(u.get("size") or 0) for u in items)
+        count = len(items)
+    limit_gb = _storage_limit_gb()
+    limit = int(limit_gb * 1024 ** 3)
+    return {
+        "used_mb": round(used / 1024 ** 2, 1),
+        "free_mb": round(max(0, limit - used) / 1024 ** 2, 1),
+        "limit_gb": limit_gb,
+        "percent_used": round(100 * used / limit, 1),
+        "files": count,
+        "count_is_capped": blob_available() and count >= 1000,
+    }
+
+
+def describe_uploads(upload_ids: List[str]) -> Dict[str, Any]:
+    """What would be deleted for these ids. Nothing is changed."""
+    by_id = {u.get("id"): u for u in list_uploads(status=None)}
+    found, missing = [], []
+    for upload_id in dict.fromkeys(upload_ids):  # dedupe, keep order
+        rec = by_id.get(upload_id)
+        if rec is None:
+            missing.append(upload_id)
+            continue
+        found.append({
+            "id": rec.get("id"), "filename": rec.get("filename"), "kind": rec.get("kind"),
+            "size_mb": round(int(rec.get("size") or 0) / 1024 ** 2, 2),
+            "caption": rec.get("caption") or "",
+            "uploaded_at": float(rec.get("uploaded_at") or 0),
+        })
+    total = sum(f["size_mb"] for f in found)
+    return {"files": found, "missing": missing, "total_mb": round(total, 2)}
+
+
+def remove_uploads(upload_ids: List[str]) -> None:
+    """Drop several records from the index in one write. The files must already be gone."""
+    wanted = set(upload_ids)
+    if not wanted:
+        return
 
     def mutate(index):
         if not isinstance(index, dict):
             return None
-        keep = []
-        for u in index.get("uploads") or []:
-            ts = float(u.get("uploaded_at") or 0)
-            if ts < cutoff and u.get("status") != "posted":
-                try:
-                    delete_blob_file(u)
-                    deleted.append(str(u.get("id")))
-                except Exception as e:
-                    errors.append(f"{u.get('id')}: {e}")
-                    keep.append(u)  # keep the record so the next run can retry
-            else:
-                keep.append(u)
-        index["uploads"] = keep
+        index["uploads"] = [u for u in (index.get("uploads") or []) if u.get("id") not in wanted]
         return index
 
     if blob_available():
         blob_store.update_json(blob_store.index_key(), mutate, copy.deepcopy(INDEX_DEFAULT))
     else:
         _mutate_local(mutate)
-    return {"deleted": deleted, "errors": errors, "retention_hours": hours}
+
+
+def delete_uploads(upload_ids: List[str]) -> Dict[str, Any]:
+    """Delete the files and their records for these ids. Callers must have confirmed first.
+
+    A file that cannot be deleted keeps its record, so it stays visible and can be retried.
+    """
+    by_id = {u.get("id"): u for u in list_uploads(status=None)}
+    failed, gone = [], []
+    for upload_id in dict.fromkeys(upload_ids):  # dedupe, keep order
+        rec = by_id.get(upload_id)
+        if rec is None:
+            failed.append({"id": upload_id, "error": "no such upload"})
+            continue
+        try:
+            delete_blob_file(rec)
+        except Exception as exc:
+            failed.append({"id": upload_id, "filename": rec.get("filename"), "error": str(exc)[:200]})
+            continue
+        gone.append(rec)
+    if gone:
+        remove_uploads([r.get("id") for r in gone])
+    deleted = [{"id": r.get("id"), "filename": r.get("filename")} for r in gone]
+    freed = sum(int(r.get("size") or 0) for r in gone)
+    return {"deleted": deleted, "failed": failed, "freed_mb": round(freed / 1024 ** 2, 2)}
+

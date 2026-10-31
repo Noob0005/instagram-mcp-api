@@ -4033,8 +4033,8 @@ def instagram_cancel_scheduled_post(queue_id: str, confirm: bool = False) -> str
 # 12. BLOB UPLOAD STAGING (the /upload page)
 #     Browser sends files straight to Vercel Blob (no 4.5 MB serverless body
 #     limit); these tools list / preview / publish / delete them. Rejected
-#     files land in the problem log (list_problems). Unposted uploads are
-#     purged after 7 days by the daily cron (api/cleanup.py).
+#     files land in the problem log (list_problems). Uploads stay until
+#     you delete them (the Library, or delete_uploads).
 # ─────────────────────────────────────────────────────────────────────────────
 
 @mcp.tool()
@@ -4107,11 +4107,11 @@ def preview_upload(upload_id: str) -> Image:
         summary = (f"Video '{rec.get('filename')}': format={info.get('format')}, "
                    f"codecs={info.get('codecs')}, acceptable_for_reels={info.get('ok')}"
                    + (f", reason={info.get('reason')}" if not info.get("ok") else ""))
-        return Image(content=summary.encode(), format="txt")
+        return summary  # plain text: Image() takes no content= in this FastMCP version
     except FileNotFoundError as e:
-        return Image(content=str(e).encode(), format="txt")
+        return str(e)
     except Exception as e:
-        return Image(content=f"Error previewing upload: {e}".encode(), format="txt")
+        return f"Error previewing upload: {e}"
 
 
 @mcp.tool()
@@ -4378,6 +4378,76 @@ def delete_upload(upload_id: str) -> str:
         return str({"status": "deleted", "id": upload_id, "filename": rec.get("filename")})
     except Exception as e:
         return _friendly_error(e, "deleting the upload")
+
+
+@mcp.tool()
+def storage_status() -> str:
+    """
+    How much storage the staged uploads use and how much is left.
+
+    Use when the user asks about storage, space, or whether they should clear
+    files. It counts the media this app staged on Vercel Blob plus its index
+    files. The Hobby plan includes 1 GB.
+    """
+    try:
+        from instagram_mcp_server import upload_store
+        s = upload_store.storage_usage()
+        note = " The count is capped at 1000 objects, so the real total may be higher." if s.get("count_is_capped") else ""
+        summary = (f"{s['used_mb']} MB used of {s['limit_gb']:g} GB ({s['percent_used']}%), "
+                   f"{s['free_mb']} MB free, {s['files']} stored objects.{note}")
+        return str({"summary": summary, **s})
+    except Exception as e:
+        return _friendly_error(e, "checking storage")
+
+
+@mcp.tool()
+def delete_uploads(upload_ids: List[str], confirm: bool = False) -> str:
+    """
+    Delete staged uploads: the media files on Vercel Blob and their records.
+
+    Always two steps:
+    1. Call with confirm=False (the default). Nothing is deleted. You get the
+       exact files, sizes and captions that would go. Show that list to the
+       user and ask which ones to delete (all of them, or some).
+    2. Only after the user clearly agrees to that exact list, call again with
+       the same upload_ids and confirm=True.
+
+    Get ids from list_uploads(status="") for every record, or list_uploads()
+    for pending ones. Never pass confirm=True without the user's yes.
+    """
+    try:
+        from instagram_mcp_server import upload_store
+        ids = [str(i).strip() for i in (upload_ids or []) if str(i).strip()]
+        if not ids:
+            return str({"status": "error", "error": "No upload ids given. Use list_uploads to find them."})
+
+        if not confirm:
+            p = upload_store.describe_uploads(ids)
+            return str({
+                "status": "not_deleted_yet",
+                "would_delete": [{
+                    "id": f["id"], "filename": f["filename"], "kind": f["kind"],
+                    "size_mb": f["size_mb"], "caption": f["caption"],
+                    "uploaded_at": time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime(f["uploaded_at"])),
+                } for f in p["files"]],
+                "total_mb": p["total_mb"],
+                "missing_ids": p["missing"],
+                "next_step": ("Show this list to the user and ask which to delete. Only after they agree, "
+                              "call delete_uploads again with the same ids and confirm=True."),
+            })
+
+        result = upload_store.delete_uploads(ids)
+        left = upload_store.storage_usage()
+        return str({
+            "status": "ok" if not result["failed"] else "partial",
+            "deleted": result["deleted"],
+            "failed": result["failed"],
+            "freed_mb": result["freed_mb"],
+            "storage_used_mb": left["used_mb"],
+            "storage_free_mb": left["free_mb"],
+        })
+    except Exception as e:
+        return _friendly_error(e, "deleting uploads")
 
 
 @mcp.tool()

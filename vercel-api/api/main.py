@@ -7,7 +7,6 @@ The actual servers are implemented as raw ASGI apps in the sibling modules, so
 this file dispatches to the right one based on the request path:
 
     /api/upload   -> api.upload:app   (media upload pipeline)
-    /api/cleanup  -> api.cleanup:app  (daily cron: expire sessions/blobs)
     everything else (/api/main, /mcp, /healthz, /upload page) -> mcp_server_asgi:app
 
 `vercel.json` rewrites /mcp and /healthz into this function; the MCP app is
@@ -32,7 +31,6 @@ _ROOT = _HERE.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-import cleanup  # noqa: E402
 import mcp_server_asgi  # noqa: E402
 import upload  # noqa: E402
 from admin_ui import handlers as admin  # noqa: E402
@@ -63,8 +61,5 @@ async def app(scope, receive, send):
             return
         if path.startswith("/api/upload"):
             await upload.app(scope, receive, send)
-            return
-        if path.startswith("/api/cleanup"):
-            await cleanup.app(scope, receive, send)
             return
     await mcp_server_asgi.app(scope, receive, send)
