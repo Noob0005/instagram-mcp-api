@@ -4107,11 +4107,11 @@ def preview_upload(upload_id: str) -> Image:
         summary = (f"Video '{rec.get('filename')}': format={info.get('format')}, "
                    f"codecs={info.get('codecs')}, acceptable_for_reels={info.get('ok')}"
                    + (f", reason={info.get('reason')}" if not info.get("ok") else ""))
-        return Image(content=summary.encode(), format="txt")
+        return summary  # plain text: Image() takes no content= in this FastMCP version
     except FileNotFoundError as e:
-        return Image(content=str(e).encode(), format="txt")
+        return str(e)
     except Exception as e:
-        return Image(content=f"Error previewing upload: {e}".encode(), format="txt")
+        return f"Error previewing upload: {e}"
 
 
 @mcp.tool()
