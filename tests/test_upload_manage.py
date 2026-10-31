@@ -41,6 +41,7 @@ def add(name, hours_old=1, size=1, thumb=None):
         for u in index["uploads"]:
             if u["id"] == rec["id"]:
                 u["uploaded_at"] = time.time() - hours_old * HOUR
+                u["expires_at"] = u["uploaded_at"] + upload_store.keep_hours() * 3600
         return index
     upload_store._mutate_local(mutate)
     return rec["id"]
@@ -74,21 +75,21 @@ class ListTests(unittest.TestCase):
     def setUp(self):
         reset()
 
-    def test_list_shows_pending_uploads_and_no_expiry(self):
+    def test_list_shows_pending_uploads_and_when_each_is_deleted(self):
         add("fresh.jpg", hours_old=1)
         status, data = call(body={"action": "list"})
         self.assertEqual(status, 200)
         self.assertEqual([u["filename"] for u in data["uploads"]], ["fresh.jpg"])
         item = data["uploads"][0]
         self.assertFalse(item["has_thumb"])
-        self.assertNotIn("expires_at", item)
-        self.assertNotIn("retention_hours", data)
+        self.assertGreater(item["expires_at"], time.time())
+        self.assertEqual(data["keep_hours"], 48.0)
 
-    def test_old_uploads_are_kept_until_deleted_by_hand(self):
+    def test_uploads_past_their_time_are_deleted_when_the_list_is_read(self):
         add("old.jpg", hours_old=600)
         add("new.jpg", hours_old=2)
         _, data = call(body={"action": "list"})
-        self.assertEqual(sorted(u["filename"] for u in data["uploads"]), ["new.jpg", "old.jpg"])
+        self.assertEqual([u["filename"] for u in data["uploads"]], ["new.jpg"])
 
 
 class RenameDeleteTests(unittest.TestCase):

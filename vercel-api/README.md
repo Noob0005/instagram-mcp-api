@@ -8,8 +8,8 @@ Serverless deployment of the Instagram MCP server. No PC has to stay on.
   Upload button, plus Connect (address for your AI app and the browser extension), Instagram
   (sign-in), Settings (how long uploads are kept) and Advanced (setup checklist and checks).
 - **Upload page:** `https://<project>.vercel.app/upload` — send photos/reels straight to Blob
-  with per-file progress, see what is waiting, and view, rename or delete it. The Settings
-  panel on that page sets how long unposted files are kept.
+  with per-file progress, see what is waiting, and view, rename or delete it. Unposted files are
+  deleted automatically after 48 hours (`INSTAGRAM_MCP_UNPOSTED_HOURS`).
 - **Health check:** `/healthz` (open, no tool access).
 
 ## 1. Deploy
@@ -55,13 +55,15 @@ The dashboard's checklist shows the same list and flags missing or weak values.
 | `BLOB_READ_WRITE_TOKEN` | required | Added automatically by Storage → Blob. |
 | `SESSION_ENCRYPTION_KEY` | required | Fernet key that encrypts the saved session. Must be a 44-character URL-safe base64 key — **not** `secrets.token_hex`. Press **GEN**. |
 | `CRON_SECRET` | required | Lets the daily cleanup cron authenticate. Press **GEN**. |
+| `INSTAGRAM_MCP_UNPOSTED_HOURS` | 48 | how long an unposted upload is kept before it is deleted (1–168) |
+| `INSTAGRAM_MCP_STORE_SECRET` | `MCP_AUTH_KEY` | names the Blob store's private files; keep it stable, because changing it moves them |
 | `ADMIN_USERNAME` | recommended | Dashboard login name. |
 | `ADMIN_PASSWORD` | recommended | Dashboard password (10+ characters). Press **GEN**. |
 | `INSTAGRAM_MCP_SESSION_NAME` | optional | Session name in Blob. Default `default`. |
 | `INSTAGRAM_MCP_SESSIONID` | optional | Cookie seed for cold-start login. |
 | `INSTAGRAM_MCP_SESSION_JSON` | optional | First-time seed only: an instagrapi settings JSON. Ignored once a session exists in Blob. |
 | `INSTAGRAM_MCP_USERNAME` / `INSTAGRAM_MCP_PASSWORD` | optional | Last-resort login. Avoid the password. |
-| `INSTAGRAM_MCP_UPLOAD_TTL_DAYS` | removed | Replaced by the retention setting on the upload settings page (default 48 hours). |
+| `INSTAGRAM_MCP_UPLOAD_TTL_DAYS` | removed | Replaced by `INSTAGRAM_MCP_UNPOSTED_HOURS` (default 48 hours). |
 | `INSTAGRAM_MCP_MAX_UPLOAD_BYTES` | optional | Upload size limit. Default 256 MB. |
 | `INSTAGRAM_MCP_BLOB_PREFIX` | optional | Top-level Blob key prefix. Default `instagram-mcp`. |
 | `INSTAGRAM_MCP_BLOB_ACCESS` | optional | `private` (default, recommended) or `public`. Must match the store type. |
@@ -97,7 +99,7 @@ Open `/upload?auth=<MCP_AUTH_KEY>` (or press **Upload** on the dashboard), choos
 watch each one's progress bar. The browser sends the bytes straight to Vercel Blob, which
 skips the ~4.5 MB request-body limit. Under **My uploads** you can view a file (up to 4 MB
 can be opened in the page; larger ones show their preview), rename it (the file name stays
-the same), or delete it. Settings sets how long unposted files are kept.
+the same), or delete it. Unposted files are deleted automatically after 48 hours.
 
 Then ask your AI to use these tools:
 
@@ -123,10 +125,7 @@ checked against private and local addresses. Downloads are capped at 100 MB and 
 MP4 (H.264 + AAC). The check reads the file's bytes. Anything else returns
 `Error: reel rejected: …` and nothing is uploaded.
 
-**Cleanup and retention:** unposted files are removed after the retention saved on the upload
-settings page (default 48 hours, allowed 1–720). The list action and the daily cron at
-04:00 UTC (`vercel.json` → `/api/cleanup`) both apply it. Hobby plans run cron once a day, so a
-file can stay up to about 72 hours unless someone lists uploads sooner.
+**Cleanup:** unposted files are deleted `INSTAGRAM_MCP_UNPOSTED_HOURS` after upload (default 48, allowed 1–168). Reading the upload list and the daily cron at 04:00 UTC (`vercel.json` → `/api/cleanup`) both delete the ones that are due. Hobby plans run cron once a day, so a file can stay up to about a day longer than the setting unless someone opens the list sooner.
 The Blob copy is deleted after a successful post.
 
 ## 6. Security
