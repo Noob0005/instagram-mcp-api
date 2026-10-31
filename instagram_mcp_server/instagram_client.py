@@ -46,10 +46,22 @@ def _session_settings_from_env():
         return None
 
 
+def _request_delay_range() -> list:
+    """Random pause range between Instagram requests. Off by default.
+
+    Set INSTAGRAM_MCP_REQUEST_DELAY_MAX (seconds) to add a pause up to that length.
+    """
+    try:
+        hi = max(0.0, float(os.environ.get("INSTAGRAM_MCP_REQUEST_DELAY_MAX", "0") or 0))
+    except ValueError:
+        hi = 0.0
+    return [0, hi]
+
+
 class InstagramClientWrapper:
     def __init__(self, session_path: str = "instagram_session.json"):
         self.cl = Client()
-        self.cl.delay_range = [1, 3]  # human-like delays between requests
+        self.cl.delay_range = _request_delay_range()  # no pause unless INSTAGRAM_MCP_REQUEST_DELAY_MAX is set
         self.session_path = session_path
         self.username: Optional[str] = None
         self.password: Optional[str] = None

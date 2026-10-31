@@ -35,14 +35,18 @@ async def _call(**patches):
 
 
 class PreviewUploadTests(unittest.TestCase):
-    def test_stored_thumbnail_comes_back_as_a_jpeg_image(self):
+    def test_stored_thumbnail_comes_back_as_a_jpeg_image_with_a_note(self):
         result = asyncio.run(_call(thumb={"return_value": _jpeg((200, 150))}))
-        self.assertEqual([type(b).__name__ for b in result.content], ["ImageContent"])
+        self.assertEqual([type(b).__name__ for b in result.content], ["ImageContent", "TextContent"])
         self.assertFalse(result.is_error)
+        note = result.content[1].text
+        self.assertIn("a.jpg", note)
+        self.assertIn("200x150", note)
 
     def test_original_is_used_when_no_thumbnail_exists(self):
         result = asyncio.run(_call(bytes={"return_value": _jpeg((4000, 3000))}))
-        self.assertEqual([type(b).__name__ for b in result.content], ["ImageContent"])
+        self.assertEqual([type(b).__name__ for b in result.content], ["ImageContent", "TextContent"])
+        self.assertIn("512x384", result.content[1].text)  # shrunk to 512 px on the longest side
 
     def test_a_failed_read_returns_readable_text_not_a_tool_error(self):
         result = asyncio.run(_call(bytes={"side_effect": RuntimeError("store down")}))

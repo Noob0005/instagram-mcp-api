@@ -645,9 +645,10 @@ def _pacing_error(action: str) -> Optional[str]:
     return None
 
 def _pace_action(action: str) -> int:
-    """Sleep a human-like, configurable delay before a write action.
+    """Optional pause before a write action. No pause by default.
 
-    action: "comment"/"reply", "post", or "engage" (likes, saves, follows, DMs).
+    Add pauses with INSTAGRAM_MCP_<KIND>_DELAY_MIN/_MAX, or INSTAGRAM_MCP_SAFE_MODE=1 for long ones.
+    action: "comment"/"reply", "post", "like", "social", "dm", or "engage"/other (saves, private actions).
     Returns the number of seconds waited (reported in tool output).
     """
     if action in _COMMENT_ACTIONS:
@@ -657,7 +658,7 @@ def _pace_action(action: str) -> int:
         elif _safe_mode():
             lo, hi = 90.0, 240.0
         else:
-            lo, hi = 5.0, 12.0
+            lo, hi = 0.0, 0.0
     elif action == "post":
         if "INSTAGRAM_MCP_POST_DELAY_MIN" in os.environ or "INSTAGRAM_MCP_POST_DELAY_MAX" in os.environ:
             lo = _cfg_float("INSTAGRAM_MCP_POST_DELAY_MIN", 15.0)
@@ -665,7 +666,7 @@ def _pace_action(action: str) -> int:
         elif _safe_mode():
             lo, hi = 300.0, 900.0
         else:
-            lo, hi = 15.0, 40.0
+            lo, hi = 0.0, 0.0
     elif action == "like":
         if "INSTAGRAM_MCP_LIKE_DELAY_MIN" in os.environ or "INSTAGRAM_MCP_LIKE_DELAY_MAX" in os.environ:
             lo = _cfg_float("INSTAGRAM_MCP_LIKE_DELAY_MIN", 3.0)
@@ -673,7 +674,7 @@ def _pace_action(action: str) -> int:
         elif _safe_mode():
             lo, hi = 60.0, 180.0
         else:
-            lo, hi = 3.0, 8.0
+            lo, hi = 0.0, 0.0
     elif action == "social":
         if "INSTAGRAM_MCP_SOCIAL_DELAY_MIN" in os.environ or "INSTAGRAM_MCP_SOCIAL_DELAY_MAX" in os.environ:
             lo = _cfg_float("INSTAGRAM_MCP_SOCIAL_DELAY_MIN", 10.0)
@@ -681,7 +682,7 @@ def _pace_action(action: str) -> int:
         elif _safe_mode():
             lo, hi = 300.0, 600.0
         else:
-            lo, hi = 10.0, 25.0
+            lo, hi = 0.0, 0.0
     elif action == "dm":
         if "INSTAGRAM_MCP_DM_DELAY_MIN" in os.environ or "INSTAGRAM_MCP_DM_DELAY_MAX" in os.environ:
             lo = _cfg_float("INSTAGRAM_MCP_DM_DELAY_MIN", 4.0)
@@ -689,7 +690,7 @@ def _pace_action(action: str) -> int:
         elif _safe_mode():
             lo, hi = 120.0, 300.0
         else:
-            lo, hi = 4.0, 10.0
+            lo, hi = 0.0, 0.0
     else:
         if "INSTAGRAM_MCP_ACTION_DELAY_MIN" in os.environ or "INSTAGRAM_MCP_ACTION_DELAY_MAX" in os.environ:
             lo = _cfg_float("INSTAGRAM_MCP_ACTION_DELAY_MIN", 2.0)
@@ -697,7 +698,7 @@ def _pace_action(action: str) -> int:
         elif _safe_mode():
             lo, hi = 30.0, 120.0
         else:
-            lo, hi = 2.0, 6.0
+            lo, hi = 0.0, 0.0
     if hi < lo:
         lo, hi = hi, lo
     delay = random.uniform(lo, hi) if hi > 0 else 0.0
@@ -4082,8 +4083,28 @@ def set_upload_caption(upload_id: str, caption: str) -> str:
         return _friendly_error(e, "setting the upload caption")
 
 
+def _image_preview(rec: dict, jpeg: bytes, source: str):
+    """A JPEG preview as an image plus a short text note, so the result is never empty.
+
+    The note names the file and its size, and is logged with the byte count so a production
+    run shows exactly what was sent.
+    """
+    import io
+    from PIL import Image as PILImage
+    try:
+        w, h = PILImage.open(io.BytesIO(jpeg)).size
+    except Exception:
+        w = h = 0
+    path = _write_image_temp(jpeg, ".jpg")
+    note = (f"Preview of '{rec.get('filename')}' ({rec.get('kind') or 'photo'}): "
+            f"{w}x{h} JPEG, {len(jpeg) // 1024} KB, from the {source}.")
+    print(f"[preview_upload] {rec.get('id')}: sent {len(jpeg)} bytes, {w}x{h}, source={source}",
+          file=sys.stderr)
+    return [Image(path=path, format="jpeg"), note]
+
+
 @mcp.tool()
-def preview_upload(upload_id: str) -> Image:
+def preview_upload(upload_id: str):
     """
     Return a small JPEG thumbnail of a staged upload so you can eyeball the
     photo without fetching its URL. Videos get a short metadata summary instead.
@@ -4095,14 +4116,12 @@ def preview_upload(upload_id: str) -> Image:
             raise FileNotFoundError(f"No upload with id {upload_id!r} — check list_uploads")
         stored = upload_store.fetch_thumb(rec)  # made in the browser at upload time
         if stored:
-            path = _write_image_temp(stored, ".jpg")
-            return Image(path=path, format="jpeg")
+            return _image_preview(rec, stored, "stored thumbnail")
         data = upload_store.fetch_bytes(rec)
         ctype = media_validation.sniff_content_type(data)
         if ctype.startswith("image/"):
             thumb = media_validation.thumbnail_bytes(data, max_side=512)
-            path = _write_image_temp(thumb, ".jpg")
-            return Image(path=path, format="jpeg")
+            return _image_preview(rec, thumb, "original file, shrunk for preview")
         info = media_validation.validate_reel(data)
         summary = (f"Video '{rec.get('filename')}': format={info.get('format')}, "
                    f"codecs={info.get('codecs')}, acceptable_for_reels={info.get('ok')}"
