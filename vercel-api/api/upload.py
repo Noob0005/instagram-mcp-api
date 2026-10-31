@@ -124,6 +124,15 @@ async def _serve_media(scope, send) -> None:
     await send({"type": "http.response.body", "body": data})
 
 
+def _purge_quietly() -> None:
+    """Delete uploads whose time is up before listing. A failure here must never break the list."""
+    try:
+        from instagram_mcp_server import upload_store
+        upload_store.purge_expired()
+    except Exception as exc:
+        print(f"[upload] purge before list failed: {type(exc).__name__}: {exc}", file=sys.stderr)
+
+
 async def app(scope, receive, send):
     """Never leaks a bare 500: any unexpected error becomes JSON that names the problem and is logged."""
     try:
@@ -171,6 +180,7 @@ async def _app(scope, receive, send):
     from instagram_mcp_server import blob_store, upload_store
 
     if action == "list":
+        _purge_quietly()
         items = []
         for u in upload_store.list_uploads(status="pending"):
             items.append({
@@ -179,9 +189,10 @@ async def _app(scope, receive, send):
                 "content_type": u.get("content_type") or "", "caption": u.get("caption") or "",
                 "uploaded_at": float(u.get("uploaded_at") or 0),
                 "has_thumb": bool(u.get("thumb_pathname")),
+                "expires_at": upload_store.expires_at_of(u),
             })
         items.sort(key=lambda x: x["uploaded_at"], reverse=True)
-        await _send_json(send, 200, {"ok": True, "uploads": items})
+        await _send_json(send, 200, {"ok": True, "uploads": items, "keep_hours": upload_store.keep_hours()})
         return
 
     if action == "rename":

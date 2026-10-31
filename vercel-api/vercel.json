@@ -30,6 +30,12 @@
       "destination": "/api/main?route=session-sync"
     }
   ],
+  "crons": [
+    {
+      "path": "/api/cleanup",
+      "schedule": "0 4 * * *"
+    }
+  ],
   "functions": {
     "api/main.py": {
       "maxDuration": 60

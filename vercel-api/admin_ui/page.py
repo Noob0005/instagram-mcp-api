@@ -237,7 +237,7 @@ details.group[open] > summary::after{transform:rotate(45deg)}
         <h1>Your Instagram helper</h1>
         <p class="muted">Add photos and videos here. Your AI assistant can then post them to Instagram for you.</p>
         <div class="row"><a class="btn primary big" id="uploadBtn" href="/upload"><svg class="ico" aria-hidden="true"><use href="#i-upload"/></svg><span>Upload photos and videos</span></a></div>
-        <p class="hint">Uploaded files stay until you delete them in the upload Library.</p>
+        <p class="hint">Unposted uploads are deleted automatically after a set time (48 hours by default).</p>
       </div>
 
       <div class="tiles">
