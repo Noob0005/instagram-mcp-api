@@ -6,6 +6,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 
 _TMP = tempfile.mkdtemp()
 os.environ["INSTAGRAM_MCP_UPLOAD_INDEX_PATH"] = os.path.join(_TMP, "index.json")
@@ -15,7 +16,7 @@ os.environ.pop("MCP_ALLOW_UNAUTHENTICATED", None)
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "vercel-api", "api"))
 
-from instagram_mcp_server import upload_store  # noqa: E402
+from instagram_mcp_server import media_links, upload_store  # noqa: E402
 import upload as upload_api  # noqa: E402
 
 INDEX = os.environ["INSTAGRAM_MCP_UPLOAD_INDEX_PATH"]
@@ -196,6 +197,36 @@ class BulkDeleteAndStorageApiTests(unittest.TestCase):
         self.assertIn("delete_many", data["actions"])
         self.assertIn("storage", data["actions"])
 
+
+class SignedViewLinkTests(unittest.TestCase):
+    def setUp(self):
+        reset()
+
+    def _link_query(self, kind, upload_id):
+        return media_links.make_link(kind, upload_id, "https://insta.example").split("?", 1)[1]
+
+    def test_a_signed_link_opens_the_preview_without_the_server_key(self):
+        uid = add("a.jpg", thumb="instagram-mcp/uploads/a_thumb.jpg")
+        with mock.patch.object(upload_store, "fetch_thumb", return_value=b"JPEGBYTES"):
+            status, body = call("GET", query=self._link_query("thumb", uid), key=None)
+        self.assertEqual(status, 200)
+        self.assertEqual(body, b"JPEGBYTES")
+
+    def test_a_link_with_a_wrong_signature_is_refused(self):
+        uid = add("a.jpg", thumb="instagram-mcp/uploads/a_thumb.jpg")
+        query = self._link_query("thumb", uid).split("&sig=")[0] + "&sig=" + "0" * 64
+        self.assertEqual(call("GET", query=query, key=None)[0], 401)
+
+    def test_a_thumbnail_link_cannot_be_used_as_a_file_link(self):
+        uid = add("a.jpg", thumb="instagram-mcp/uploads/a_thumb.jpg")
+        query = self._link_query("thumb", uid).replace("thumb=", "file=", 1)
+        self.assertEqual(call("GET", query=query, key=None)[0], 401)
+
+    def test_a_link_stops_working_once_the_upload_is_removed(self):
+        uid = add("a.jpg", thumb="instagram-mcp/uploads/a_thumb.jpg")
+        query = self._link_query("thumb", uid)
+        upload_store.remove_upload(uid)
+        self.assertEqual(call("GET", query=query, key=None)[0], 404)
 
 if __name__ == "__main__":
     unittest.main()

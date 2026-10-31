@@ -41,7 +41,7 @@ svg.i{width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.9;
 /* app bar */
 .bar{position:sticky; top:0; z-index:20; background:color-mix(in srgb,var(--surface) 88%,transparent);
   backdrop-filter:saturate(1.4) blur(10px); -webkit-backdrop-filter:saturate(1.4) blur(10px); border-bottom:1px solid var(--line)}
-.bar-in{max-width:1120px; margin:0 auto; padding:12px 20px; display:flex; align-items:center; gap:12px}
+.bar-in{max-width:1280px; margin:0 auto; padding:12px 20px; display:flex; align-items:center; gap:12px}
 .mark{width:34px; height:34px; border-radius:10px; background:var(--accent); color:var(--accent-ink); display:grid; place-items:center; font-weight:800; font-size:14px}
 .title{font-weight:700; font-size:1.02rem; letter-spacing:-.01em}
 .title small{display:block; font-weight:500; color:var(--muted); font-size:.8rem; letter-spacing:0}
@@ -52,13 +52,13 @@ svg.i{width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.9;
 .icon-btn:active{transform:scale(.96)}
 
 /* segmented tabs */
-.tabs{max-width:1120px; margin:0 auto; padding:14px 20px 0}
+.tabs{max-width:1280px; margin:0 auto; padding:14px 20px 0}
 .seg{display:inline-grid; grid-auto-flow:column; gap:4px; padding:4px; background:var(--soft); border-radius:12px}
 .seg button{border:0; background:transparent; padding:9px 16px; border-radius:9px; font-weight:600; color:var(--muted); cursor:pointer; display:flex; align-items:center; gap:8px; min-height:40px; transition:background .2s,color .2s}
 .seg button[aria-selected="true"]{background:var(--surface); color:var(--ink); box-shadow:var(--shadow)}
 .count{background:var(--accent-soft); color:var(--accent); border-radius:999px; padding:1px 8px; font-size:.78rem; font-weight:700}
 
-main{max-width:1120px; margin:0 auto; padding:18px 20px 140px}
+main{max-width:1280px; margin:0 auto; padding:18px 20px 140px}
 .panel{animation:rise .3s ease both}
 @keyframes rise{from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none}}
 .card{background:var(--surface); border:1px solid var(--line); border-radius:var(--r-lg); box-shadow:var(--shadow)}
@@ -123,7 +123,7 @@ input:focus,select:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--
   background:color-mix(in srgb,var(--surface) 92%,transparent); backdrop-filter:blur(10px); border-top:1px solid var(--line);
   transform:translateY(100%); transition:transform .3s ease}
 .dock.show{transform:none}
-.dock-in{max-width:1120px; margin:0 auto; display:flex; align-items:center; gap:12px}
+.dock-in{max-width:1280px; margin:0 auto; display:flex; align-items:center; gap:12px}
 .dock-text{min-width:0}
 .dock-text b{display:block}
 .dock-text span{color:var(--muted); font-size:.85rem}
@@ -138,8 +138,9 @@ input:focus,select:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--
 .chip{border:1px solid var(--line); background:var(--surface); border-radius:999px; padding:7px 14px; font-weight:600; font-size:.86rem; color:var(--ink2); cursor:pointer; min-height:36px}
 .chip[aria-pressed="true"]{background:var(--ink); color:var(--surface); border-color:var(--ink)}
 .grid{display:grid; gap:14px; grid-template-columns:repeat(2,minmax(0,1fr))}
-@media (min-width:720px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media (min-width:1000px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media (min-width:560px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (min-width:860px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media (min-width:1160px){.grid{grid-template-columns:repeat(5,minmax(0,1fr))}}
 .tile{background:var(--surface); border:1px solid var(--line); border-radius:var(--r); overflow:hidden; display:flex; flex-direction:column; box-shadow:var(--shadow); animation:rise .3s ease both; transition:transform .2s,box-shadow .2s}
 .tile:hover{transform:translateY(-2px)}
 .pic{position:relative; aspect-ratio:4/5; background:var(--soft); display:grid; place-items:center; color:var(--muted); overflow:hidden}
@@ -239,7 +240,7 @@ input:focus,select:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--
 <div class="tabs">
   <div class="seg" role="tablist" aria-label="Uploads">
     <button type="button" role="tab" id="tabAdd" aria-selected="true" aria-controls="panelAdd"><svg class="i" aria-hidden="true"><use href="#i-up"/></svg>Add files</button>
-    <button type="button" role="tab" id="tabLib" aria-selected="false" aria-controls="panelLib"><svg class="i" aria-hidden="true"><use href="#i-img"/></svg>Library <span class="count" id="libCount">0</span></button>
+    <button type="button" role="tab" id="tabLib" aria-selected="false" aria-controls="panelLib"><svg class="i" aria-hidden="true"><use href="#i-img"/></svg>Library <span class="count" id="libCount" aria-live="polite">…</span></button>
   </div>
 </div>
 
@@ -337,7 +338,7 @@ const AUTH = params.get("auth") || sessionStorage.getItem("mcp_auth") || "";
 if (AUTH) sessionStorage.setItem("mcp_auth", AUTH);
 const H = {"X-Auth-Key": AUTH};
 const $ = (id) => document.getElementById(id);
-const BUILD = "2026-10-31 manual delete";
+const BUILD = "2026-10-31 library count and layout";
 const LOG_LIMIT = 500;
 const logLines = [];
 function redact(s) {
@@ -471,6 +472,7 @@ function showTab(name) {
   const add = name === "add";
   $("panelAdd").classList.toggle("hidden", !add);
   $("panelLib").classList.toggle("hidden", add);
+  updateDock();
   $("tabAdd").setAttribute("aria-selected", String(add));
   $("tabLib").setAttribute("aria-selected", String(!add));
   if (!add) loadUploads();
@@ -547,8 +549,10 @@ function updateDock() {
   $("start").disabled = !ready.length || busy;
   $("start").textContent = busy ? "Uploading..." : "Upload";
   $("clear").hidden = !finished.length || busy;
-  $("dock").classList.toggle("show", queue.length > 0);
+  // The action bar belongs to the Add tab. On the Library it would sit over the tiles (most of all on phones).
+  $("dock").classList.toggle("show", queue.length > 0 && !libraryTabOpen());
 }
+function libraryTabOpen() { return !$("panelLib").classList.contains("hidden"); }
 
 /* ---------- uploading ---------- */
 // A small JPEG preview (max 512 px). Failure is not fatal: the assistant can still work from the file.
@@ -682,6 +686,7 @@ async function loadUploads() {
     loadStorage();
   } catch (e) {
     $("grid").replaceChildren();
+    $("libCount").textContent = "–";
     logLine("error", "library: " + errText(e));
     showEmpty("Could not load your library", e.message);
     toast(e.message, "bad");
@@ -919,6 +924,8 @@ if (!AUTH) {
   $("dockSub").textContent = "This page needs its key. Open it from your dashboard.";
   $("start").disabled = true;
   $("tabLib").disabled = true;
+} else {
+  loadUploads();  // fills the Library count before the tab is opened
 }
 window.addEventListener("error", (e) => logLine("error", "page error: " + (e.message || "unknown")
   + (e.filename ? " at " + e.filename.split("/").pop() + ":" + e.lineno : "")));
