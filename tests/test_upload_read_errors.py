@@ -59,3 +59,15 @@ class MissingFileAnsweredWith400Tests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ReadWithoutCacheParamTests(unittest.TestCase):
+    """The store answers `?cache=0` with 400, so reads must not ask for a cache bypass."""
+
+    def test_get_bytes_does_not_request_a_cache_bypass(self):
+        fake_sdk = mock.Mock()
+        fake_sdk.get.return_value = mock.Mock(content=b"{}", status_code=200)
+        with mock.patch.object(blob_store, "_sdk", return_value=fake_sdk), \
+                mock.patch.object(blob_store, "_token", return_value="t"):
+            blob_store.get_bytes("instagram-mcp/uploads/index.json")
+        self.assertIs(fake_sdk.get.call_args.kwargs["use_cache"], True)
