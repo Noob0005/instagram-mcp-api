@@ -331,6 +331,75 @@ def delete_blob_file(rec: Dict[str, Any]) -> None:
             pass
 
 
+def _storage_limit_gb() -> float:
+    """The plan's storage allowance. Hobby includes 1 GB; override with INSTAGRAM_MCP_STORAGE_LIMIT_GB."""
+    try:
+        return max(0.001, float(os.environ.get("INSTAGRAM_MCP_STORAGE_LIMIT_GB", "1")))
+    except ValueError:
+        return 1.0
+
+
+def storage_usage() -> Dict[str, Any]:
+    """Bytes used by staged files (media and previews) against the storage allowance."""
+    if blob_available():
+        objects = blob_store.list_prefix(blob_store.PREFIX + "/uploads/")  # capped at 1000 objects
+        used = sum(int(o.get("size") or 0) for o in objects)
+        count = len(objects)
+    else:
+        items = list_uploads(status=None)
+        used = sum(int(u.get("size") or 0) for u in items)
+        count = len(items)
+    limit_gb = _storage_limit_gb()
+    limit = int(limit_gb * 1024 ** 3)
+    return {
+        "used_mb": round(used / 1024 ** 2, 1),
+        "free_mb": round(max(0, limit - used) / 1024 ** 2, 1),
+        "limit_gb": limit_gb,
+        "percent_used": round(100 * used / limit, 1),
+        "files": count,
+        "count_is_capped": blob_available() and count >= 1000,
+    }
+
+
+def describe_uploads(upload_ids: List[str]) -> Dict[str, Any]:
+    """What would be deleted for these ids. Nothing is changed."""
+    by_id = {u.get("id"): u for u in list_uploads(status=None)}
+    found, missing = [], []
+    for upload_id in dict.fromkeys(upload_ids):  # dedupe, keep order
+        rec = by_id.get(upload_id)
+        if rec is None:
+            missing.append(upload_id)
+            continue
+        found.append({
+            "id": rec.get("id"), "filename": rec.get("filename"), "kind": rec.get("kind"),
+            "size_mb": round(int(rec.get("size") or 0) / 1024 ** 2, 2),
+            "caption": rec.get("caption") or "",
+            "uploaded_at": float(rec.get("uploaded_at") or 0),
+        })
+    total = sum(f["size_mb"] for f in found)
+    return {"files": found, "missing": missing, "total_mb": round(total, 2)}
+
+
+def delete_uploads(upload_ids: List[str]) -> Dict[str, Any]:
+    """Delete the files and their records for these ids. Callers must have confirmed first."""
+    by_id = {u.get("id"): u for u in list_uploads(status=None)}
+    deleted, failed, freed = [], [], 0
+    for upload_id in dict.fromkeys(upload_ids):  # dedupe, keep order
+        rec = by_id.get(upload_id)
+        if rec is None:
+            failed.append({"id": upload_id, "error": "no such upload"})
+            continue
+        try:
+            delete_blob_file(rec)
+        except Exception as exc:
+            failed.append({"id": upload_id, "filename": rec.get("filename"), "error": str(exc)[:200]})
+            continue
+        remove_upload(upload_id)
+        freed += int(rec.get("size") or 0)
+        deleted.append({"id": upload_id, "filename": rec.get("filename")})
+    return {"deleted": deleted, "failed": failed, "freed_mb": round(freed / 1024 ** 2, 2)}
+
+
 def purge_expired(hours: Optional[float] = None) -> Dict[str, Any]:
     """Delete unposted uploads older than `hours` (default: the saved retention). Cron-friendly."""
     if hours is None:
