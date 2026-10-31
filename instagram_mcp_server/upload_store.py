@@ -9,13 +9,13 @@ Flow:
      Vercel's ~4.5 MB serverless request-body limit.
   2. The browser then registers the upload with the server, sending only
      metadata: caption, aspect ratio and kind (photo|reel). That lands here as
-     an entry in <prefix>/uploads/index.json.
+     an entry in the upload index (a private, hard-to-guess file in the Blob store).
   3. An agent lists pending files with the list_uploads tool, previews them
      with preview_upload, and publishes with post_upload — which downloads the
      bytes on the server, validates + converts them, posts to Instagram and
      deletes the Blob copy.
   4. Anything rejected (bad image, non-MP4 reel, corrupt file) is recorded in
-     <prefix>/uploads/problems.json and shown by list_problems.
+     the problem log (a private, hard-to-guess file) and shown by list_problems.
   5. Nothing is removed automatically. Uploads stay until they are deleted by hand
      (the upload Library, or the delete_uploads MCP tool).
 
@@ -88,7 +88,7 @@ def add_upload(*, filename: str, pathname: str, url: Optional[str], size: int,
         "id": blob_store.new_upload_id(),
         "filename": blob_store.safe_filename(filename),
         "pathname": pathname,
-        "url": url,
+        "url": None,  # not stored: a public Blob address would let anyone who reads the index open the photo
         "size": int(size or 0),
         "content_type": content_type,
         "caption": caption or "",
