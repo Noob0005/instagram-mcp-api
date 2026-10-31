@@ -226,8 +226,6 @@ input:focus,select:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--
     <div class="mark" aria-hidden="true">IG</div>
     <div class="title">Uploads<small>Photos and reels for your next post</small></div>
     <div class="bar-end">
-      <span class="chip-keep" id="keepChip" title="Unposted files are removed after this time"><svg class="i" aria-hidden="true"><use href="#i-clock"/></svg><span><span class="long">Kept </span><span id="keepHours">48</span>&nbsp;h</span></span>
-      <button class="icon-btn" id="openSettings" type="button" aria-label="Retention settings"><svg class="i" aria-hidden="true"><use href="#i-gear"/></svg></button>
     </div>
   </div>
 </header>
@@ -333,7 +331,6 @@ const AUTH = params.get("auth") || sessionStorage.getItem("mcp_auth") || "";
 if (AUTH) sessionStorage.setItem("mcp_auth", AUTH);
 const H = {"X-Auth-Key": AUTH};
 const $ = (id) => document.getElementById(id);
-const DEFAULT_HOURS = 48;
 const BUILD = "2026-10-31 manual delete";
 const LOG_LIMIT = 500;
 const logLines = [];
@@ -459,7 +456,7 @@ function fmtSize(bytes) {
   if (bytes < 1024 * 1024) return Math.max(1, Math.round(bytes / 1024)) + " KB";
   return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }
-function fmtUntil(seconds) {
+function fmtWhen(seconds) {
   return new Date(seconds * 1000).toLocaleString([], {day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"});
 }
 
@@ -674,7 +671,6 @@ async function loadUploads() {
   try {
     const data = await api({action: 'list'});
     uploads = data.uploads || [];
-    $("keepHours").textContent = data.retention_hours;
     for (const id of [...picked]) if (!uploads.some((u) => u.id === id)) picked.delete(id);
     renderLibrary();
     loadStorage();
@@ -721,7 +717,7 @@ function tile(u) {
     pic,
     el("div", {class: "tb"},
       el("div", {class: "tn", text: u.title || u.filename}),
-      el("div", {class: "tm", text: fmtSize(u.size) + " · keep until " + fmtUntil(u.expires_at)})),
+      el("div", {class: "tm", text: fmtSize(u.size) + " · uploaded " + fmtWhen(u.uploaded_at)})),
     el("div", {class: "ta"},
       btn("View", "eye", () => openView(u)),
       btn("Rename", "edit", () => openRename(u)),
@@ -875,39 +871,6 @@ function openDelete(u) {
   ]);
 }
 
-/* ---------- retention settings ---------- */
-const PRESETS = [[24, "24 hours"], [48, "2 days"], [72, "3 days"], [168, "1 week"], [720, "30 days"]];
-async function openSettings() {
-  let current = DEFAULT_HOURS;
-  try { current = (await api({action: 'settings'})).retention_hours; } catch (e) { /* show the default */ }
-  const input = el("input", {type: "number", min: "1", max: "720", step: "1", inputmode: "numeric", value: current, "aria-label": "Hours"});
-  const note = el("div", {class: "notice", style: "display:none"});
-  const show = (msg, tone) => { note.className = "notice " + tone; note.textContent = msg; note.style.display = "block"; };
-  const save = async (hours) => {
-    try {
-      const d = await api({action: 'settings_save', retention_hours: hours});
-      input.value = d.retention_hours;
-      $("keepHours").textContent = d.retention_hours;
-      show("Saved. Unposted files are kept for " + d.retention_hours + " hours.", "ok");
-      toast("Saved.", "ok");
-    } catch (e) { show(e.message, "bad"); }
-  };
-  const presets = el("div", {class: "presets"}, PRESETS.map(([h, label]) =>
-    el("button", {class: "chip", type: "button", "aria-pressed": String(h === Number(current)), text: label,
-      onclick: () => { input.value = h; save(h); }})));
-  openSheet([
-    el("h3", {id: "sheetTitle", text: "Keep unposted files"}),
-    el("p", {class: "sub", text: "Files you upload but do not post are removed automatically after this long."}),
-    presets,
-    el("label", {class: "f", for: "hoursIn", text: "Or enter hours (1 to 720)"}),
-    Object.assign(input, {id: "hoursIn"}),
-    note,
-    el("div", {class: "row"},
-      el("button", {class: "btn", type: "button", text: "Back to 48 hours", onclick: () => save(DEFAULT_HOURS)}),
-      el("button", {class: "btn primary", type: "button", text: "Save", onclick: () => save(Number(input.value))})),
-  ]);
-}
-$("openSettings").addEventListener("click", openSettings);
 
 /* ---------- activity log ---------- */
 async function runCheck() {
@@ -915,7 +878,7 @@ async function runCheck() {
   logLine("info", "page " + location.pathname + " | online " + navigator.onLine + " | " + navigator.userAgent.slice(0, 120));
   try { await import("/upload-client.js"); logLine("info", "upload library: loads OK"); }
   catch (e) { logLine("error", "upload library: FAILED to load: " + errText(e)); }
-  try { const d = await api({action: "settings"}); logLine("info", "server: reachable, keeps unposted files " + d.retention_hours + " h"); }
+  try { await api({action: "list"}); logLine("info", "server: reachable"); }
   catch (e) { logLine("error", "server: " + errText(e)); }
   try {
     const r = await fetch("/api/blob-token", {method: "POST", headers: {"Content-Type": "application/json"},
@@ -950,8 +913,6 @@ if (!AUTH) {
   $("dockSub").textContent = "This page needs its key. Open it from your dashboard.";
   $("start").disabled = true;
   $("tabLib").disabled = true;
-} else {
-  api({action: 'settings'}).then((d) => { $("keepHours").textContent = d.retention_hours; }).catch(() => {});
 }
 window.addEventListener("error", (e) => logLine("error", "page error: " + (e.message || "unknown")
   + (e.filename ? " at " + e.filename.split("/").pop() + ":" + e.lineno : "")));

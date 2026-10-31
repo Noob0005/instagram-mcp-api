@@ -9,25 +9,23 @@ import unittest
 
 _TMP = tempfile.mkdtemp()
 os.environ["INSTAGRAM_MCP_UPLOAD_INDEX_PATH"] = os.path.join(_TMP, "index.json")
-os.environ["INSTAGRAM_MCP_UPLOAD_SETTINGS_PATH"] = os.path.join(_TMP, "settings.json")
 os.environ.pop("BLOB_READ_WRITE_TOKEN", None)
-os.environ["MCP_AUTH_KEY"] = "test-key-for-upload-settings-0123"  # same value as test_upload_settings.py
+os.environ["MCP_AUTH_KEY"] = "test-key-for-upload-settings-0123"
 os.environ.pop("MCP_ALLOW_UNAUTHENTICATED", None)
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "vercel-api", "api"))
 
-from instagram_mcp_server import upload_settings, upload_store  # noqa: E402
+from instagram_mcp_server import upload_store  # noqa: E402
 import upload as upload_api  # noqa: E402
 
 INDEX = os.environ["INSTAGRAM_MCP_UPLOAD_INDEX_PATH"]
-SETTINGS = os.environ["INSTAGRAM_MCP_UPLOAD_SETTINGS_PATH"]
 KEY = os.environ["MCP_AUTH_KEY"]
 HOUR = 3600
 
 
 def reset():
     # Read the paths now, not at import: both test modules set the same variables when they load.
-    for var in ("INSTAGRAM_MCP_UPLOAD_INDEX_PATH", "INSTAGRAM_MCP_UPLOAD_SETTINGS_PATH"):
+    for var in ("INSTAGRAM_MCP_UPLOAD_INDEX_PATH",):
         path = os.environ[var]
         if os.path.exists(path):
             os.remove(path)
@@ -75,28 +73,21 @@ class ListTests(unittest.TestCase):
     def setUp(self):
         reset()
 
-    def test_list_shows_pending_uploads_with_their_expiry(self):
+    def test_list_shows_pending_uploads_and_no_expiry(self):
         add("fresh.jpg", hours_old=1)
         status, data = call(body={"action": "list"})
         self.assertEqual(status, 200)
-        self.assertEqual(data["retention_hours"], 48)
         self.assertEqual([u["filename"] for u in data["uploads"]], ["fresh.jpg"])
         item = data["uploads"][0]
-        self.assertAlmostEqual(item["expires_at"] - item["uploaded_at"], 48 * HOUR, delta=5)
         self.assertFalse(item["has_thumb"])
+        self.assertNotIn("expires_at", item)
+        self.assertNotIn("retention_hours", data)
 
-    def test_list_removes_uploads_past_the_retention_first(self):
-        add("old.jpg", hours_old=60)
+    def test_old_uploads_are_kept_until_deleted_by_hand(self):
+        add("old.jpg", hours_old=600)
         add("new.jpg", hours_old=2)
         _, data = call(body={"action": "list"})
-        self.assertEqual([u["filename"] for u in data["uploads"]], ["new.jpg"])
-
-    def test_a_changed_retention_changes_the_expiry_shown(self):
-        add("a.jpg", hours_old=1)
-        upload_settings.set_retention_hours(72)
-        _, data = call(body={"action": "list"})
-        item = data["uploads"][0]
-        self.assertAlmostEqual(item["expires_at"] - item["uploaded_at"], 72 * HOUR, delta=5)
+        self.assertEqual(sorted(u["filename"] for u in data["uploads"]), ["new.jpg", "old.jpg"])
 
 
 class RenameDeleteTests(unittest.TestCase):

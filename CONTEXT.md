@@ -51,7 +51,7 @@ mcp_server.py, instagram_client.py (root) — thin shims, NOT real code
 pyproject.toml, requirements.txt, LICENSE, MANIFEST.in
 README.md, SETUP_SSE_HTTP.md, CONTEXT.md (this file)
 vercel-api/             SERVERLESS DEPLOYMENT (see §4b): api/ (main.py dispatcher, upload.py,
-                        blob-token.js, cleanup.py, mcp_server_asgi.py), admin_ui/ (dashboard),
+                        blob-token.js, mcp_server_asgi.py), admin_ui/ (dashboard),
                         public/upload.html, vercel.json, requirements.txt, package.json,
                         sync_package.sh. _vendor/ = synced copy of instagram_mcp_server (commit it).
 instagram_mcp_server/   also: blob_store.py, session_store.py, upload_store.py, media_validation.py
@@ -84,17 +84,17 @@ EXCLUDE from bundle: `.venv/`, `__pycache__/`, `dist/`, `build/`, `*.egg-info/`,
 
 ## 4b. Vercel deployment (vercel-api/, region bom1)
 - Routes (vercel.json): `/` & `/admin` dashboard, `/upload` page, `/mcp` MCP, `/healthz`;
-  all go through `api/main.py` (admin -> upload -> cleanup -> mcp ASGI). Don't name a file `api/mcp.py`.
+  all go through `api/main.py` (admin -> upload -> mcp ASGI). Don't name a file `api/mcp.py`.
 - Dashboard (`admin_ui/`): login (ADMIN_USERNAME/PASSWORD else MCP key), env checklist,
   copyable MCP URL, endpoint tester, Instagram session form (cookie/password/2FA/challenge). Dark terminal theme.
 - Storage: PRIVATE Vercel Blob via official `vercel` SDK (`blob_store.py`). Session Fernet-encrypted at
   `<prefix>/sessions/<name>.json`. Uploads: browser -> Blob directly using short-lived token from
   `api/blob-token.js` (never exposes BLOB_READ_WRITE_TOKEN), then `/api/upload commit`.
 - MCP tools added: list_uploads, preview_upload, post_upload (deletes Blob after posting),
-  delete_upload, list_problems. Cron `/api/cleanup` daily 04:00 purges uploads >7 days.
+  delete_upload, list_problems. No cron: uploads stay until deleted by hand (Library, or delete_uploads).
 - Env tiers: required MCP_AUTH_KEY, BLOB_READ_WRITE_TOKEN, SESSION_ENCRYPTION_KEY (Fernet 44-char b64, NOT hex),
   CRON_SECRET; recommended ADMIN_USERNAME/PASSWORD; rest optional. Never set MCP_ALLOW_UNAUTHENTICATED.
-- Hobby limits: maxDuration 60 s, daily cron only, Blob 1 GB. Counters/dedupe/queue still in /tmp (ephemeral).
+- Hobby limits: maxDuration 60 s, Blob 1 GB. Counters/dedupe/queue still in /tmp (ephemeral).
 
 ## 5. Done (1 line each)
 - 104 tools, auth chain, guardrails, image pipeline, installers (local project; 105 original tests).
@@ -155,3 +155,4 @@ Other: uploads index read-modify-write race; Termux pydantic fix unconfirmed; ph
 - 2026-10-28: upload_from_url MCP tool (instagram_mcp_server/url_upload.py): server downloads a link into Blob, returns id + preview image; falls back to page/thumbnail preview when the file is blocked. Public-address check on every hop. 236 tests pass.
 - 2026-10-28: Dashboard redesigned for non-technical use (Home, Connect, Instagram, Settings, Advanced; phone bottom bar, desktop tabs; light/dark). New admin routes upload_settings GET/POST. 236 tests pass.
 - 2026-10-29: Photos and carousel items default to original size and quality: JPEGs pass through byte-for-byte; other formats re-encode at quality 100 with no resize; quality drops only past the 8 MB limit. 242 tests pass.
+- 2026-10-31: Automatic cleanup removed (no cron, no retention setting). Uploads stay until deleted by hand: Library multi-select with confirmation, or AI delete_uploads after the user confirms. storage_status reports what is left.

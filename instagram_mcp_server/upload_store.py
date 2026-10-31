@@ -16,8 +16,8 @@ Flow:
      deletes the Blob copy.
   4. Anything rejected (bad image, non-MP4 reel, corrupt file) is recorded in
      <prefix>/uploads/problems.json and shown by list_problems.
-  5. A daily cron (api/cleanup.py) drops unposted uploads older than the saved
-     retention (default 48 hours; see upload_settings.py).
+  5. Nothing is removed automatically. Uploads stay until they are deleted by hand
+     (the upload Library, or the delete_uploads MCP tool).
 
 Local/disk mode: when Blob is not configured, entries are kept in a JSON file
 under the state dir and files are expected on local disk (`local_path`). This
@@ -33,7 +33,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from instagram_mcp_server import blob_store, upload_settings
+from instagram_mcp_server import blob_store
 
 INDEX_DEFAULT: Dict[str, Any] = {"uploads": []}
 PROBLEMS_DEFAULT: Dict[str, Any] = {"problems": []}
@@ -422,35 +422,3 @@ def delete_uploads(upload_ids: List[str]) -> Dict[str, Any]:
     freed = sum(int(r.get("size") or 0) for r in gone)
     return {"deleted": deleted, "failed": failed, "freed_mb": round(freed / 1024 ** 2, 2)}
 
-
-def purge_expired(hours: Optional[float] = None) -> Dict[str, Any]:
-    """Delete unposted uploads older than `hours` (default: the saved retention). Cron-friendly."""
-    if hours is None:
-        hours = upload_settings.retention_hours()
-    cutoff = time.time() - float(hours) * 3600
-    deleted: List[str] = []
-    errors: List[str] = []
-
-    def mutate(index):
-        if not isinstance(index, dict):
-            return None
-        keep = []
-        for u in index.get("uploads") or []:
-            ts = float(u.get("uploaded_at") or 0)
-            if ts < cutoff and u.get("status") != "posted":
-                try:
-                    delete_blob_file(u)
-                    deleted.append(str(u.get("id")))
-                except Exception as e:
-                    errors.append(f"{u.get('id')}: {e}")
-                    keep.append(u)  # keep the record so the next run can retry
-            else:
-                keep.append(u)
-        index["uploads"] = keep
-        return index
-
-    if blob_available():
-        blob_store.update_json(blob_store.index_key(), mutate, copy.deepcopy(INDEX_DEFAULT))
-    else:
-        _mutate_local(mutate)
-    return {"deleted": deleted, "errors": errors, "retention_hours": hours}

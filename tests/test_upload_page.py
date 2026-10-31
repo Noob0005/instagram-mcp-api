@@ -14,12 +14,11 @@ class UploadPageEmbeddedTests(unittest.TestCase):
         self.assertIn("'/api/upload'", UPLOAD_HTML)
         self.assertIn("/api/blob-token", UPLOAD_HTML)
 
-    def test_page_has_progress_list_view_rename_delete_and_settings(self):
+    def test_page_has_progress_list_view_rename_and_delete(self):
         # Per-file progress while uploading.
         self.assertIn("onUploadProgress", UPLOAD_HTML)
-        # My uploads: list, thumbnails, view, rename, delete, retention settings.
+        # My uploads: list, thumbnails, view, rename, delete.
         for needle in ("action: 'list'", "action: 'rename'", "action: 'delete'",
-                       "action: 'settings'", "action: 'settings_save'",
                        "mediaUrl(u.id, 'thumb')", "mediaUrl(u.id, 'file')"):
             self.assertIn(needle, UPLOAD_HTML)
 
