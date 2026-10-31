@@ -152,6 +152,15 @@ input:focus,select:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--
 .ta button{flex:1; border:0; background:none; padding:8px 0; border-radius:8px; color:var(--ink2); cursor:pointer; display:grid; place-items:center; min-height:38px}
 .ta button:hover{background:var(--soft); color:var(--ink)}
 .ta button.del:hover{color:var(--bad)}
+.libbar{display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px 12px; margin:2px 2px 12px; font-size:.9rem}
+.storage{color:var(--muted); flex:1 1 200px}
+.storage.warn{color:var(--bad); font-weight:650}
+.selbar{position:sticky; top:8px; z-index:6; display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:var(--raised); border:1px solid var(--line); border-radius:var(--r); padding:10px 12px; margin-bottom:14px; box-shadow:var(--shadow)}
+.selbar .grow{flex:1}
+.pick{position:absolute; top:8px; right:8px; z-index:2; width:32px; height:32px; border-radius:9px; background:rgba(255,255,255,.94); display:grid; place-items:center; box-shadow:0 1px 3px rgba(0,0,0,.25); cursor:pointer}
+.pick input{width:18px; height:18px; margin:0; cursor:pointer}
+.tile.picked{outline:2px solid #2563eb; outline-offset:-2px}
+.dellist{margin:10px 0; padding-left:18px; max-height:40vh; overflow:auto; font-size:.9rem; color:var(--ink2)}
 .skel{background:linear-gradient(90deg,var(--soft),var(--line),var(--soft)); background-size:200% 100%; animation:shim 1.2s linear infinite; border-radius:var(--r)}
 @keyframes shim{to{background-position:-200% 0}}
 .empty{text-align:center; padding:48px 16px; color:var(--muted)}
@@ -285,6 +294,16 @@ input:focus,select:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--
         <button class="icon-btn" id="refresh" type="button" aria-label="Refresh"><svg class="i" aria-hidden="true"><use href="#i-refresh"/></svg></button>
       </div>
     </div>
+    <div class="libbar">
+      <span class="storage" id="storageLine" aria-live="polite">Checking storage...</span>
+      <button class="link" id="selAll" type="button">Select all shown</button>
+    </div>
+    <div class="selbar hidden" id="selBar" role="region" aria-label="Selected files">
+      <b id="selText">0 selected</b>
+      <span class="grow"></span>
+      <button class="link" id="selClear" type="button">Clear</button>
+      <button class="btn danger solid" id="selDelete" type="button">Delete selected</button>
+    </div>
     <div class="grid" id="grid"></div>
     <div class="empty hidden" id="libEmpty">
       <div class="art"><svg class="i" style="width:28px;height:28px"><use href="#i-img"/></svg></div>
@@ -315,7 +334,7 @@ if (AUTH) sessionStorage.setItem("mcp_auth", AUTH);
 const H = {"X-Auth-Key": AUTH};
 const $ = (id) => document.getElementById(id);
 const DEFAULT_HOURS = 48;
-const BUILD = "2026-10-29 logs";
+const BUILD = "2026-10-31 manual delete";
 const LOG_LIMIT = 500;
 const logLines = [];
 function redact(s) {
@@ -646,6 +665,7 @@ $("file").addEventListener("change", (e) => { addFiles(e.target.files); e.target
 let uploads = [];
 let filter = "all";
 let query = "";
+const picked = new Set();  // ids ticked in the Library
 
 async function loadUploads() {
   if (!AUTH) return;
@@ -655,7 +675,9 @@ async function loadUploads() {
     const data = await api({action: 'list'});
     uploads = data.uploads || [];
     $("keepHours").textContent = data.retention_hours;
+    for (const id of [...picked]) if (!uploads.some((u) => u.id === id)) picked.delete(id);
     renderLibrary();
+    loadStorage();
   } catch (e) {
     $("grid").replaceChildren();
     logLine("error", "library: " + errText(e));
@@ -683,6 +705,7 @@ function renderLibrary() {
   if (!uploads.length) showEmpty("Nothing waiting yet", "Files you upload appear here until you post them.");
   else if (!list.length) showEmpty("No matches", "Try another search or filter.");
   else $("libEmpty").classList.add("hidden");
+  updateSelBar();
 }
 
 function tile(u) {
@@ -691,7 +714,10 @@ function tile(u) {
   else pic.append(el("div", {class: "thumb", "aria-hidden": "true", style: "width:44px;height:44px"}, icon(u.kind === "reel" ? "play" : "img")));
   pic.append(el("span", {class: "kind", text: u.kind === "reel" ? "REEL" : "PHOTO"}));
   const btn = (label, name, fn, extra) => el("button", {type: "button", class: extra || "", title: label, "aria-label": label, onclick: fn}, icon(name));
-  return el("article", {class: "tile", "data-id": u.id},
+  const tick = el("input", {type: "checkbox", "aria-label": "Select " + (u.title || u.filename),
+    checked: picked.has(u.id), onchange: (e) => setPicked(u.id, e.target.checked)});
+  pic.append(el("label", {class: "pick", title: "Select"}, tick));
+  return el("article", {class: picked.has(u.id) ? "tile picked" : "tile", "data-id": u.id},
     pic,
     el("div", {class: "tb"},
       el("div", {class: "tn", text: u.title || u.filename}),
@@ -710,9 +736,86 @@ document.querySelectorAll(".chip").forEach((chip) => chip.addEventListener("clic
 $("search").addEventListener("input", (e) => { query = e.target.value; renderLibrary(); });
 $("refresh").addEventListener("click", loadUploads);
 
+/* ---------- selection, storage and bulk delete ---------- */
+const MAX_BULK = 200;  // matches the server limit
+
+function setPicked(id, on) {
+  if (on) picked.add(id); else picked.delete(id);
+  const t = document.querySelector('.tile[data-id="' + CSS.escape(id) + '"]');
+  if (t) t.classList.toggle("picked", on);
+  updateSelBar();
+}
+function updateSelBar() {
+  const chosen = uploads.filter((u) => picked.has(u.id));
+  const shown = visible();
+  const allOn = shown.length > 0 && shown.every((u) => picked.has(u.id));
+  $("selBar").classList.toggle("hidden", chosen.length === 0);
+  $("selText").textContent = chosen.length + " selected, "
+    + fmtMB(chosen.reduce((s, u) => s + (u.size || 0), 0) / 1024 / 1024);
+  $("selAll").textContent = allOn ? "Clear shown" : "Select all shown";
+  $("selAll").disabled = shown.length === 0;
+}
+$("selAll").addEventListener("click", () => {
+  const shown = visible();
+  const allOn = shown.length > 0 && shown.every((u) => picked.has(u.id));
+  shown.forEach((u) => (allOn ? picked.delete(u.id) : picked.add(u.id)));
+  renderLibrary();
+});
+$("selClear").addEventListener("click", () => { picked.clear(); renderLibrary(); });
+$("selDelete").addEventListener("click", openDeleteMany);
+
+function fmtMB(mb) {
+  const n = Number(mb) || 0;
+  return n >= 1024 ? (n / 1024).toFixed(2) + " GB" : Math.round(n) + " MB";
+}
+async function loadStorage() {
+  try { showStorage(await api({action: 'storage'})); }
+  catch (e) { $("storageLine").textContent = "Storage: could not check (" + errText(e) + ")"; }
+}
+function showStorage(s) {
+  const left = Math.max(0, Number(s.limit_gb) * 1024 - Number(s.used_mb));
+  const line = $("storageLine");
+  line.textContent = "Using " + fmtMB(s.used_mb) + " of " + s.limit_gb + " GB, " + fmtMB(left) + " left"
+    + (s.count_is_capped ? " (over 1000 files, so the real total may be higher)" : "");
+  line.classList.toggle("warn", Number(s.percent_used) >= 80);
+}
+
+function openDeleteMany() {
+  const chosen = uploads.filter((u) => picked.has(u.id));
+  if (!chosen.length) return;
+  if (chosen.length > MAX_BULK) { toast("Delete at most " + MAX_BULK + " files at a time.", "bad"); return; }
+  const n = chosen.length;
+  const label = n + (n === 1 ? " file" : " files");
+  const totalMB = chosen.reduce((s, u) => s + (u.size || 0), 0) / 1024 / 1024;
+  const confirm = el("button", {class: "btn danger solid", type: "button", text: "Delete " + label, onclick: async () => {
+    confirm.disabled = true;
+    try {
+      const data = await api({action: 'delete_many', ids: chosen.map((u) => u.id)});
+      const done = data.deleted || [];
+      const failed = data.failed || [];
+      done.forEach((d) => picked.delete(d.id));
+      closeSheet();
+      if (done.length) toast("Deleted " + done.length + (done.length === 1 ? " file" : " files") + ". Freed " + fmtMB(data.freed_mb) + ".", "ok");
+      if (failed.length) toast(failed.length + " could not be deleted. They are still in your library.", "bad");
+      logLine(failed.length ? "error" : "info", "delete: " + done.length + " deleted, " + failed.length + " failed");
+      loadUploads();
+    } catch (e) {
+      confirm.disabled = false;
+      toast(e.message, "bad");
+    }
+  }});
+  openSheet([
+    el("h3", {id: "sheetTitle", text: "Delete " + label + "?"}),
+    el("p", {class: "sub", text: "About " + fmtMB(totalMB) + " will be removed from storage right away. This cannot be undone."}),
+    el("ul", {class: "dellist"}, chosen.slice(0, 50).map((u) => el("li", {text: (u.title || u.filename) + " · " + fmtSize(u.size)}))),
+    n > 50 ? el("p", {class: "sub", text: "...and " + (n - 50) + " more."}) : null,
+    el("div", {class: "row"}, el("button", {class: "btn", type: "button", text: "Keep them", onclick: closeSheet}), confirm),
+  ]);
+}
+
 /* ---------- sheets ---------- */
 function openSheet(children) {
-  $("sheet").replaceChildren(...children);
+  $("sheet").replaceChildren(...children.filter(Boolean));  // a null child would print as the word "null"
   $("scrim").classList.add("open");
   $("scrim").setAttribute("aria-hidden", "false");
   const first = $("sheet").querySelector("input, button");

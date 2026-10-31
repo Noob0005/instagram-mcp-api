@@ -211,6 +211,27 @@ async def _app(scope, receive, send):
         await _send_json(send, 200, {"ok": True})
         return
 
+    if action == "delete_many":
+        ids = [str(i) for i in (body.get("ids") or []) if str(i).strip()]
+        if not ids:
+            await _send_json(send, 400, {"ok": False, "error": "pick at least one file"})
+            return
+        if len(ids) > 200:
+            await _send_json(send, 400, {"ok": False, "error": "delete at most 200 files at a time"})
+            return
+        result = upload_store.delete_uploads(ids)
+        await _send_json(send, 200, {"ok": True, **result})
+        return
+
+    if action == "storage":
+        try:
+            usage = upload_store.storage_usage()
+        except Exception as exc:
+            await _send_json(send, 500, {"ok": False, "error": f"could not check storage: {exc}"})
+            return
+        await _send_json(send, 200, {"ok": True, **usage})
+        return
+
     if action == "settings":
         await _send_json(send, 200, {"ok": True, **upload_settings.describe()})
         return
@@ -272,4 +293,4 @@ async def _app(scope, receive, send):
 
     await _send_json(send, 400, {"error": "unknown action",
                                  "actions": ["begin", "commit", "list", "rename", "delete",
-                                             "settings", "settings_save"]})
+                                             "delete_many", "storage", "settings", "settings_save"]})
