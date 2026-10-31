@@ -9,15 +9,16 @@ Flow:
      Vercel's ~4.5 MB serverless request-body limit.
   2. The browser then registers the upload with the server, sending only
      metadata: caption, aspect ratio and kind (photo|reel). That lands here as
-     an entry in <prefix>/uploads/index.json.
+     an entry in the upload index (a private, hard-to-guess file in the Blob store).
   3. An agent lists pending files with the list_uploads tool, previews them
      with preview_upload, and publishes with post_upload — which downloads the
      bytes on the server, validates + converts them, posts to Instagram and
      deletes the Blob copy.
   4. Anything rejected (bad image, non-MP4 reel, corrupt file) is recorded in
-     <prefix>/uploads/problems.json and shown by list_problems.
-  5. Nothing is removed automatically. Uploads stay until they are deleted by hand
-     (the upload Library, or the delete_uploads MCP tool).
+     the problem log (a private, hard-to-guess file) and shown by list_problems.
+  5. An upload that is not posted is deleted INSTAGRAM_MCP_UNPOSTED_HOURS after it was staged
+     (48 by default): by the daily cron, and whenever the upload list is read. Uploads can also be
+     deleted by hand (the upload Library, or the delete_uploads MCP tool).
 
 Local/disk mode: when Blob is not configured, entries are kept in a JSON file
 under the state dir and files are expected on local disk (`local_path`). This
@@ -88,13 +89,14 @@ def add_upload(*, filename: str, pathname: str, url: Optional[str], size: int,
         "id": blob_store.new_upload_id(),
         "filename": blob_store.safe_filename(filename),
         "pathname": pathname,
-        "url": url,
+        "url": None,  # not stored: a public Blob address would let anyone who reads the index open the photo
         "size": int(size or 0),
         "content_type": content_type,
         "caption": caption or "",
         "aspect": aspect or "auto",
         "kind": kind if kind in ("photo", "reel") else "photo",
         "uploaded_at": time.time(),
+        "expires_at": time.time() + keep_hours() * 3600,
         "status": "pending",
         "local_path": local_path,
         "thumb_pathname": thumb_pathname or None,
@@ -115,6 +117,47 @@ def add_upload(*, filename: str, pathname: str, url: Optional[str], size: int,
     else:
         _mutate_local(mutate)
     return rec
+
+
+UNPOSTED_HOURS_DEFAULT = 48
+
+
+def keep_hours() -> float:
+    """How long an upload that is not posted is kept: INSTAGRAM_MCP_UNPOSTED_HOURS (48 by default, 1 to 168)."""
+    try:
+        value = float(os.environ.get("INSTAGRAM_MCP_UNPOSTED_HOURS", UNPOSTED_HOURS_DEFAULT))
+    except ValueError:
+        value = UNPOSTED_HOURS_DEFAULT
+    return min(max(value, 1.0), 168.0)
+
+
+def expires_at_of(rec: Dict[str, Any]) -> float:
+    """When an upload is deleted: the time stored with it, or uploaded_at plus the keep time."""
+    stored = float(rec.get("expires_at") or 0)
+    return stored if stored else float(rec.get("uploaded_at") or 0) + keep_hours() * 3600
+
+
+def purge_expired(now: Optional[float] = None) -> Dict[str, Any]:
+    """Delete uploads whose time is up: the file in the Blob store (or on disk), then the record.
+
+    A posted upload's file is already gone, so only its record goes. A file that cannot be deleted keeps
+    its record, so the next run tries again. Runs from the daily cron and before each upload list."""
+    now = time.time() if now is None else now
+    due = [u for u in list_uploads(status=None) if expires_at_of(u) <= now]
+    removed: List[Any] = []
+    failed: List[Dict[str, Any]] = []
+    for rec in due:
+        if rec.get("status") != "posted":
+            try:
+                delete_blob_file(rec)
+            except Exception as exc:
+                failed.append({"id": rec.get("id"), "error": str(exc)[:200]})
+                continue
+        removed.append(rec.get("id"))
+    if removed:
+        remove_uploads(removed)
+    _log(f"purge: removed {len(removed)}, could not remove {len(failed)}")
+    return {"removed": len(removed), "failed": failed, "keep_hours": keep_hours()}
 
 
 def _mutate_local(mutate) -> None:

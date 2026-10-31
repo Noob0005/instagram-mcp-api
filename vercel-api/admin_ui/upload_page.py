@@ -313,7 +313,7 @@ input:focus,select:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--
     <div class="empty hidden" id="libEmpty">
       <div class="art"><svg class="i" style="width:28px;height:28px"><use href="#i-img"/></svg></div>
       <b id="emptyTitle">Nothing waiting yet</b>
-      <span id="emptyText">Files you upload appear here until you post them.</span>
+      <span id="emptyText">Files you upload appear here. Anything you do not post is deleted after 48 hours.</span>
     </div>
   </section>
 </main>
@@ -674,6 +674,7 @@ let filter = "all";
 let query = "";
 const picked = new Set();  // ids ticked in the Library
 
+let unpostedHours = 48;  // how long unposted files are kept; the list response sets it
 async function loadUploads() {
   if (!AUTH) return;
   $("grid").replaceChildren(...[0, 1, 2, 3].map(() => el("div", {class: "skel", style: "aspect-ratio:4/5"})));
@@ -681,6 +682,7 @@ async function loadUploads() {
   try {
     const data = await api({action: 'list'});
     uploads = data.uploads || [];
+    unpostedHours = data.keep_hours || unpostedHours;
     for (const id of [...picked]) if (!uploads.some((u) => u.id === id)) picked.delete(id);
     renderLibrary();
     loadStorage();
@@ -709,7 +711,7 @@ function renderLibrary() {
   $("libCount").textContent = uploads.length;
   const list = visible();
   $("grid").replaceChildren(...list.map(tile));
-  if (!uploads.length) showEmpty("Nothing waiting yet", "Files you upload appear here until you post them.");
+  if (!uploads.length) showEmpty("Nothing waiting yet", "Files you upload appear here. Anything you do not post is deleted after " + unpostedHours + " hours.");
   else if (!list.length) showEmpty("No matches", "Try another search or filter.");
   else $("libEmpty").classList.add("hidden");
   updateSelBar();
@@ -728,7 +730,7 @@ function tile(u) {
     pic,
     el("div", {class: "tb"},
       el("div", {class: "tn", text: u.title || u.filename}),
-      el("div", {class: "tm", text: fmtSize(u.size) + " · uploaded " + fmtWhen(u.uploaded_at)})),
+      el("div", {class: "tm", text: fmtSize(u.size) + " · uploaded " + fmtWhen(u.uploaded_at) + (u.expires_at ? " · deletes " + fmtWhen(u.expires_at) : "")})),
     el("div", {class: "ta"},
       btn("View", "eye", () => openView(u)),
       btn("Rename", "edit", () => openRename(u)),

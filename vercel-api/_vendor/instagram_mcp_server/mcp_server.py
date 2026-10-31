@@ -4046,9 +4046,17 @@ def list_uploads(status: Optional[str] = "pending") -> str:
     Shows each upload's id, filename, size, kind (photo/reel), aspect and the
     caption the user typed when uploading. status: 'pending' (default),
     'posted', 'rejected', or empty string for all records.
+
+    Unposted uploads are deleted automatically keep_hours after upload (48 by default). Each row's
+    delete_at says when. Listing first removes any already past that time. To delete sooner, use
+    delete_uploads, which asks for confirmation.
     """
     try:
         from instagram_mcp_server import upload_store
+        try:
+            upload_store.purge_expired()
+        except Exception as purge_error:
+            print(f"[list_uploads] purge failed: {purge_error}", file=sys.stderr)
         st = None if (status or "") in ("", "all", None) else status
         items = upload_store.list_uploads(status=st)
         out = [{
@@ -4061,8 +4069,10 @@ def list_uploads(status: Optional[str] = "pending") -> str:
             "status": u.get("status", "pending"),
             "uploaded_at": time.strftime("%Y-%m-%d %H:%M UTC",
                                          time.gmtime(float(u.get("uploaded_at") or 0))),
+            "delete_at": time.strftime("%Y-%m-%d %H:%M UTC",
+                                       time.gmtime(upload_store.expires_at_of(u))),
         } for u in items]
-        return str({"count": len(out), "uploads": out,
+        return str({"count": len(out), "uploads": out, "keep_hours": upload_store.keep_hours(),
                     "next_step": "preview_upload(id) to see a thumbnail, post_upload(id) to publish"})
     except Exception as e:
         return _friendly_error(e, "listing uploads")

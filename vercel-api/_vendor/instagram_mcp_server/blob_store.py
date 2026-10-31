@@ -15,16 +15,21 @@ Used for:
     skips Vercel's ~4.5 MB serverless body limit)
   * the upload index + problem log (small JSON files in the same container)
 
-Blob layout (all under one prefix):
-  sessions/<name>.json          encrypted Instagram session settings
-  uploads/<id>_<filename>       the staged media file itself
-  uploads/index.json            list of pending uploads (id, caption, kind...)
-  uploads/problems.json         rejected files with reasons
+The store is PUBLIC: anyone who learns a file's address can read it. So nothing is named after
+what it holds. Photos get random names (uploads/<token>.<ext>); the session, index and problem log
+get names only this server can derive from a secret (see _hidden_name).
+  <prefix>/<hash>.json          encrypted Instagram session settings
+  <prefix>/uploads/<token>.ext  a staged photo or reel (random name; the file name lives in the index)
+  <prefix>/<hash>.json          upload index (pending uploads, captions, kind...)
+  <prefix>/<hash>.json          rejected files with reasons
 """
 
+import hashlib
+import hmac
 import json
 import os
 import re
+import secrets
 import time
 from typing import Any, Dict, List, Optional
 
@@ -79,20 +84,44 @@ def safe_filename(name: str, max_len: int = 60) -> str:
     return f"{stem}.{ext}" if ext else stem
 
 
+def _store_secret() -> Optional[str]:
+    """The secret that names the store's private files: INSTAGRAM_MCP_STORE_SECRET, else MCP_AUTH_KEY.
+
+    Keep it stable. A different secret gives different names, so the index and session would look missing."""
+    return (os.environ.get("INSTAGRAM_MCP_STORE_SECRET") or os.environ.get("MCP_AUTH_KEY") or "").strip() or None
+
+
+def _hidden_name(label: str) -> str:
+    """A name only this server can work out. Anyone who can read a public file's address can read the file,
+    so the names of files that are not photos must not be guessable."""
+    secret = _store_secret()
+    if not secret:
+        if blob_configured():
+            raise RuntimeError("Set INSTAGRAM_MCP_STORE_SECRET (or MCP_AUTH_KEY): it gives the Blob store's "
+                               "private files unguessable names.")
+        return label  # desktop/local mode: nothing is public, so a plain name is fine
+    return hmac.new(secret.encode("utf-8"), label.encode("utf-8"), hashlib.sha256).hexdigest()[:40]
+
+
 def session_key(name: str = "default") -> str:
-    return f"{PREFIX}/sessions/{safe_filename(name)}.json"
+    return f"{PREFIX}/{_hidden_name('session:' + safe_filename(name))}.json"
 
 
 def upload_key(upload_id: str, filename: str) -> str:
-    return f"{PREFIX}/uploads/{upload_id}_{safe_filename(filename)}"
+    """Where a staged photo is stored: a random name keeping only the extension. The file name lives in
+    the index. upload_id is accepted for callers but is not part of the name."""
+    name = safe_filename(filename)
+    ext = name.rsplit(".", 1)[1] if "." in name else ""
+    token = secrets.token_urlsafe(18)  # 24 characters, unguessable
+    return f"{PREFIX}/uploads/{token}.{ext}" if ext else f"{PREFIX}/uploads/{token}"
 
 
 def index_key() -> str:
-    return f"{PREFIX}/uploads/index.json"
+    return f"{PREFIX}/{_hidden_name('index')}.json"
 
 
 def problems_key() -> str:
-    return f"{PREFIX}/uploads/problems.json"
+    return f"{PREFIX}/{_hidden_name('problems')}.json"
 
 
 def new_upload_id() -> str:
