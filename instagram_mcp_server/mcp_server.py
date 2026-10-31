@@ -4083,6 +4083,33 @@ def set_upload_caption(upload_id: str, caption: str) -> str:
         return _friendly_error(e, "setting the upload caption")
 
 
+def _public_origin() -> str:
+    """The address a browser can reach this server at: INSTAGRAM_MCP_PUBLIC_URL, else the last request's origin."""
+    base = ((os.environ.get("INSTAGRAM_MCP_PUBLIC_URL") or "").strip() or _RUNTIME_ORIGIN["base"]).rstrip("/")
+    return base[: -len("/mcp")] if base.endswith("/mcp") else base
+
+
+def _view_link(rec: dict) -> str:
+    """A signed link that opens this upload in a browser, or '' when there is none.
+
+    The stored preview is linked when there is one. Otherwise the photo itself is linked, if it is
+    small enough for the browser route (about 4 MB)."""
+    from instagram_mcp_server import media_links
+    origin = _public_origin()
+    if not origin:
+        return ""
+    if rec.get("thumb_pathname"):
+        which = "thumb"
+    elif int(rec.get("size") or 0) <= media_links.MAX_VIEW_BYTES:
+        which = "file"
+    else:
+        return ""
+    try:
+        return media_links.make_link(which, str(rec.get("id")), origin)
+    except media_links.LinkError:
+        return ""
+
+
 def _image_preview(rec: dict, jpeg: bytes, source: str):
     """A JPEG preview as an image plus a short text note, so the result is never empty.
 
@@ -4096,8 +4123,12 @@ def _image_preview(rec: dict, jpeg: bytes, source: str):
     except Exception:
         w = h = 0
     path = _write_image_temp(jpeg, ".jpg")
+    from instagram_mcp_server import media_links
+    link = _view_link(rec)
+    tail = (f"Open this link in a browser to see it (valid {media_links.hours():g} hours): {link}"
+            if link else "No view link for this upload.")
     note = (f"Preview of '{rec.get('filename')}' ({rec.get('kind') or 'photo'}): "
-            f"{w}x{h} JPEG, {len(jpeg) // 1024} KB, from the {source}.")
+            f"{w}x{h} JPEG, {len(jpeg) // 1024} KB, from the {source}. {tail}")
     print(f"[preview_upload] {rec.get('id')}: sent {len(jpeg)} bytes, {w}x{h}, source={source}",
           file=sys.stderr)
     return [Image(path=path, format="jpeg"), note]
@@ -4106,8 +4137,12 @@ def _image_preview(rec: dict, jpeg: bytes, source: str):
 @mcp.tool()
 def preview_upload(upload_id: str):
     """
-    Return a small JPEG thumbnail of a staged upload so you can eyeball the
-    photo without fetching its URL. Videos get a short metadata summary instead.
+    Show a staged upload as a small JPEG, plus a view link.
+
+    Use it to check the photo before posting. The result has the image, and a note with a link that
+    opens the image in a browser (useful when the assistant cannot display images). The link is signed
+    and expires (INSTAGRAM_MCP_VIEW_LINK_HOURS, default 24). Videos get a short metadata summary with no
+    link. Get upload ids from list_uploads.
     """
     try:
         from instagram_mcp_server import upload_store, media_validation

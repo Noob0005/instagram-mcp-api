@@ -523,6 +523,7 @@ write actions before anything else is attempted.
 | `INSTAGRAM_MCP_SOCIAL_DELAY_MIN` / `_MAX` | 0 / 0 | follows / blocks (Safe Mode: 300 / 600) |
 | `INSTAGRAM_MCP_ACTION_DELAY_MIN` / `_MAX` | 0 / 0 | saves and other private actions |
 | `INSTAGRAM_MCP_REQUEST_DELAY_MAX` | 0 | random pause (seconds) up to this between Instagram requests inside one tool call |
+| `INSTAGRAM_MCP_VIEW_LINK_HOURS` | 24 | how long a preview's view link works (0.1 to 168 hours); links are signed with `MCP_AUTH_KEY` and never contain it |
 | `INSTAGRAM_MCP_DEDUPE_WINDOW` | 600 | seconds an identical action (same target + content) is suppressed — protects against client-timeout retries double-sending |
 | `INSTAGRAM_MCP_MAX_COMMENTS_PER_HOUR` | 10 | local cap for comments/replies |
 | `INSTAGRAM_MCP_RATE_LIMIT_PAUSE` | 900 | pause length after Instagram rate-limits an action |

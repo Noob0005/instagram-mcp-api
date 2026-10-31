@@ -72,22 +72,28 @@ async def _read_body(receive) -> bytes:
     return b"".join(chunks)
 
 
-MAX_VIEW_BYTES = 4 * 1024 * 1024  # a function response is limited to about 4.5 MB on Vercel
-
-
 async def _serve_media(scope, send) -> None:
-    """GET /api/upload?thumb=<id> or ?file=<id> (auth via ?auth= or header). Only indexed uploads."""
+    """GET /api/upload?thumb=<id> or ?file=<id>.
+
+    Allowed with the key (X-Auth-Key header or ?auth=), or with a signed view link from
+    preview_upload (?exp=...&sig=...). A signed link opens only the one file it names, only until
+    it expires, and only while the upload is still staged. The server key never appears in one.
+    """
     from urllib.parse import parse_qs
-    if not _authorized(scope):
+    from instagram_mcp_server import blob_store, media_links, upload_store
+    query = parse_qs(scope.get("query_string", b"").decode("utf-8", "ignore"))
+    if "thumb" in query:
+        which, upload_id = "thumb", (query["thumb"][0] if query["thumb"] else "")
+    elif "file" in query:
+        which, upload_id = "file", (query["file"][0] if query["file"] else "")
+    else:
+        which, upload_id = "", ""
+    signed = media_links.link_is_valid(which, upload_id,
+                                       (query.get("exp") or [""])[0], (query.get("sig") or [""])[0])
+    if not signed and not _authorized(scope):
         await _send_json(send, 401, {"error": "unauthorized"})
         return
-    query = parse_qs(scope.get("query_string", b"").decode("utf-8", "ignore"))
-    from instagram_mcp_server import blob_store, upload_store
-    if "thumb" in query:
-        upload_id, which = (query["thumb"][0] if query["thumb"] else ""), "thumb"
-    elif "file" in query:
-        upload_id, which = (query["file"][0] if query["file"] else ""), "file"
-    else:
+    if not which:
         await _send_json(send, 400, {"error": "pass ?thumb=<id> or ?file=<id>"})
         return
     rec = upload_store.get_upload(upload_id) if upload_id else None
@@ -101,7 +107,7 @@ async def _serve_media(scope, send) -> None:
             return
         content_type = "image/jpeg"
     else:
-        if int(rec.get("size") or 0) > MAX_VIEW_BYTES:
+        if int(rec.get("size") or 0) > media_links.MAX_VIEW_BYTES:
             await _send_json(send, 413, {"error": "too_big_to_view",
                                          "hint": "This file is too big to open in the browser. Its preview is shown instead."})
             return
