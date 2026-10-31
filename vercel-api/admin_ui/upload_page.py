@@ -157,8 +157,14 @@ input:focus,select:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--
 .storage.warn{color:var(--bad); font-weight:650}
 .selbar{position:sticky; top:8px; z-index:6; display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:var(--raised); border:1px solid var(--line); border-radius:var(--r); padding:10px 12px; margin-bottom:14px; box-shadow:var(--shadow)}
 .selbar .grow{flex:1}
-.pick{position:absolute; top:8px; right:8px; z-index:2; width:32px; height:32px; border-radius:9px; background:rgba(255,255,255,.94); display:grid; place-items:center; box-shadow:0 1px 3px rgba(0,0,0,.25); cursor:pointer}
-.pick input{width:18px; height:18px; margin:0; cursor:pointer}
+/* selection badge: a small round tick in the photo's top-right corner */
+.pick{position:absolute; top:8px; right:8px; z-index:2; width:24px; height:24px; box-sizing:border-box; border-radius:50%;
+  background:rgba(255,255,255,.95); border:2px solid rgba(17,24,39,.45); box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.pick input{position:absolute; top:-8px; left:-8px; width:40px; height:40px; margin:0; opacity:0; cursor:pointer}
+.pick:focus-within{box-shadow:0 0 0 2px #fff, 0 0 0 4px #2563eb}
+.tile.picked .pick{background:#2563eb; border-color:#2563eb}
+.tile.picked .pick::after{content:""; position:absolute; left:7px; top:3px; width:5px; height:10px;
+  border:solid #fff; border-width:0 2px 2px 0; transform:rotate(45deg)}
 .tile.picked{outline:2px solid #2563eb; outline-offset:-2px}
 .dellist{margin:10px 0; padding-left:18px; max-height:40vh; overflow:auto; font-size:.9rem; color:var(--ink2)}
 .skel{background:linear-gradient(90deg,var(--soft),var(--line),var(--soft)); background-size:200% 100%; animation:shim 1.2s linear infinite; border-radius:var(--r)}
