@@ -4083,8 +4083,28 @@ def set_upload_caption(upload_id: str, caption: str) -> str:
         return _friendly_error(e, "setting the upload caption")
 
 
+def _image_preview(rec: dict, jpeg: bytes, source: str):
+    """A JPEG preview as an image plus a short text note, so the result is never empty.
+
+    The note names the file and its size, and is logged with the byte count so a production
+    run shows exactly what was sent.
+    """
+    import io
+    from PIL import Image as PILImage
+    try:
+        w, h = PILImage.open(io.BytesIO(jpeg)).size
+    except Exception:
+        w = h = 0
+    path = _write_image_temp(jpeg, ".jpg")
+    note = (f"Preview of '{rec.get('filename')}' ({rec.get('kind') or 'photo'}): "
+            f"{w}x{h} JPEG, {len(jpeg) // 1024} KB, from the {source}.")
+    print(f"[preview_upload] {rec.get('id')}: sent {len(jpeg)} bytes, {w}x{h}, source={source}",
+          file=sys.stderr)
+    return [Image(path=path, format="jpeg"), note]
+
+
 @mcp.tool()
-def preview_upload(upload_id: str) -> Image:
+def preview_upload(upload_id: str):
     """
     Return a small JPEG thumbnail of a staged upload so you can eyeball the
     photo without fetching its URL. Videos get a short metadata summary instead.
@@ -4096,14 +4116,12 @@ def preview_upload(upload_id: str) -> Image:
             raise FileNotFoundError(f"No upload with id {upload_id!r} — check list_uploads")
         stored = upload_store.fetch_thumb(rec)  # made in the browser at upload time
         if stored:
-            path = _write_image_temp(stored, ".jpg")
-            return Image(path=path, format="jpeg")
+            return _image_preview(rec, stored, "stored thumbnail")
         data = upload_store.fetch_bytes(rec)
         ctype = media_validation.sniff_content_type(data)
         if ctype.startswith("image/"):
             thumb = media_validation.thumbnail_bytes(data, max_side=512)
-            path = _write_image_temp(thumb, ".jpg")
-            return Image(path=path, format="jpeg")
+            return _image_preview(rec, thumb, "original file, shrunk for preview")
         info = media_validation.validate_reel(data)
         summary = (f"Video '{rec.get('filename')}': format={info.get('format')}, "
                    f"codecs={info.get('codecs')}, acceptable_for_reels={info.get('ok')}"
