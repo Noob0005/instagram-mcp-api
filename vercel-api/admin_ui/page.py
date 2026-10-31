@@ -237,7 +237,7 @@ details.group[open] > summary::after{transform:rotate(45deg)}
         <h1>Your Instagram helper</h1>
         <p class="muted">Add photos and videos here. Your AI assistant can then post them to Instagram for you.</p>
         <div class="row"><a class="btn primary big" id="uploadBtn" href="/upload"><svg class="ico" aria-hidden="true"><use href="#i-upload"/></svg><span>Upload photos and videos</span></a></div>
-        <p class="hint">Files you do not post are removed after <span id="homeKeep">48</span> hours. You can change this in Settings.</p>
+        <p class="hint">Uploaded files stay until you delete them in the upload Library.</p>
       </div>
 
       <div class="tiles">
@@ -337,20 +337,6 @@ details.group[open] > summary::after{transform:rotate(45deg)}
     </section>
 
     <section class="page" data-page="settings">
-      <div class="card">
-        <h2>Uploaded files</h2>
-        <p class="muted small">Files you upload but do not post are removed automatically after this many hours.</p>
-        <label for="hours">Keep files for (hours)</label>
-        <div class="row">
-          <input id="hours" type="number" min="1" max="720" step="1" inputmode="numeric" class="grow" style="max-width:220px">
-          <button class="btn primary" id="saveHours" type="button">Save</button>
-          <button class="btn" id="resetHours" type="button">Back to 48 hours</button>
-        </div>
-        <p class="small okline" id="hoursOk"></p>
-        <p class="small errline" id="hoursErr"></p>
-        <p class="hint">Allowed range: 1 to 720 hours (30 days). The default is 48 hours.</p>
-      </div>
-
       <div class="card">
         <h2>Sign out</h2>
         <p class="muted small">Sign out of this dashboard on this device.</p>
@@ -561,11 +547,6 @@ async function loadApp() {
   $("#kvOrigin").textContent = origin;
   renderSessionStatus(st);
 
-  const us = await api("upload_settings");
-  if (us.status === 200) {
-    $("#hours").value = us.data.retention_hours;
-    $("#homeKeep").textContent = us.data.retention_hours;
-  }
   route();
 }
 
@@ -777,21 +758,6 @@ $("#saveCookie").addEventListener("click", (e) => sessionCall({action: "cookie",
 $("#savePass").addEventListener("click", (e) => sessionCall({action: "password", username: $("#iun").value, password: $("#ipw").value}, e.target));
 $("#sendCode").addEventListener("click", (e) => sessionCall({action: pendingCode || "2fa", code: $("#code").value}, e.target));
 $("#checkSession").addEventListener("click", (e) => sessionCall({action: "status"}, e.target));
-
-/* settings: how long uploads are kept */
-async function saveHours(value) {
-  const ok = $("#hoursOk"), err = $("#hoursErr");
-  ok.textContent = ""; err.textContent = "";
-  const r = await api("upload_settings", {retention_hours: value});
-  if (r.status === 401) { boot(); return; }
-  if (r.status !== 200) { err.textContent = r.data.error || "Could not save. Please try again."; return; }
-  $("#hours").value = r.data.retention_hours;
-  $("#homeKeep").textContent = r.data.retention_hours;
-  ok.textContent = "Saved. Files you do not post are kept for " + r.data.retention_hours + " hours.";
-  toast("Saved.");
-}
-$("#saveHours").addEventListener("click", () => saveHours(Number($("#hours").value)));
-$("#resetHours").addEventListener("click", () => { $("#hours").value = 48; saveHours(48); });
 
 /* sign out */
 async function signOut() { await api("logout", {}); accessKey = ""; location.hash = ""; boot(); }

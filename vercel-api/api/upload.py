@@ -162,27 +162,20 @@ async def _app(scope, receive, send):
         return
 
     action = body.get("action", "")
-    from instagram_mcp_server import blob_store, upload_settings, upload_store
+    from instagram_mcp_server import blob_store, upload_store
 
     if action == "list":
-        from instagram_mcp_server import upload_settings as _settings
-        try:
-            upload_store.purge_expired()  # uploads past the retention go first
-        except Exception:
-            pass  # listing still works if the cleanup step fails
-        retention = _settings.retention_hours()
         items = []
         for u in upload_store.list_uploads(status="pending"):
-            ts = float(u.get("uploaded_at") or 0)
             items.append({
                 "id": u.get("id"), "filename": u.get("filename") or "", "title": u.get("title") or "",
                 "kind": u.get("kind") or "photo", "size": int(u.get("size") or 0),
                 "content_type": u.get("content_type") or "", "caption": u.get("caption") or "",
-                "uploaded_at": ts, "expires_at": ts + retention * 3600,
+                "uploaded_at": float(u.get("uploaded_at") or 0),
                 "has_thumb": bool(u.get("thumb_pathname")),
             })
         items.sort(key=lambda x: x["uploaded_at"], reverse=True)
-        await _send_json(send, 200, {"ok": True, "uploads": items, "retention_hours": retention})
+        await _send_json(send, 200, {"ok": True, "uploads": items})
         return
 
     if action == "rename":
@@ -230,19 +223,6 @@ async def _app(scope, receive, send):
             await _send_json(send, 500, {"ok": False, "error": f"could not check storage: {exc}"})
             return
         await _send_json(send, 200, {"ok": True, **usage})
-        return
-
-    if action == "settings":
-        await _send_json(send, 200, {"ok": True, **upload_settings.describe()})
-        return
-
-    if action == "settings_save":
-        try:
-            saved = upload_settings.set_retention_hours(body.get("retention_hours"))
-        except ValueError as exc:
-            await _send_json(send, 400, {"ok": False, "error": str(exc), **upload_settings.describe()})
-            return
-        await _send_json(send, 200, {"ok": True, **saved})
         return
 
     if action == "begin":
@@ -293,4 +273,4 @@ async def _app(scope, receive, send):
 
     await _send_json(send, 400, {"error": "unknown action",
                                  "actions": ["begin", "commit", "list", "rename", "delete",
-                                             "delete_many", "storage", "settings", "settings_save"]})
+                                             "delete_many", "storage"]})

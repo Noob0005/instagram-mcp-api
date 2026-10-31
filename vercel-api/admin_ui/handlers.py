@@ -257,26 +257,6 @@ async def handle(scope, receive, send) -> None:
         await _json(send, 200, {"name": name, "value": os.environ.get(name, "").strip()})
         return
 
-    if route == "upload_settings" and method == "GET":
-        from instagram_mcp_server import upload_settings
-        await _json(send, 200, upload_settings.describe())
-        return
-
-    if route == "upload_settings" and method == "POST":
-        # How long files that are not posted are kept (1-720 hours; default 48).
-        from instagram_mcp_server import upload_settings
-        body = await _read_json(receive)
-        if body is None:
-            await _json(send, 400, {"error": "Body must be JSON."})
-            return
-        try:
-            saved = upload_settings.set_retention_hours(body.get("retention_hours"))
-        except ValueError as exc:
-            await _json(send, 400, {"error": str(exc), **upload_settings.describe()})
-            return
-        await _json(send, 200, {"ok": True, **saved})
-        return
-
     if route == "reveal" and method == "POST":
         key = os.environ.get("MCP_AUTH_KEY", "").strip()
         await _json(send, 200, {"mcp_url": _mcp_url(scope, reveal=True), "key": key})

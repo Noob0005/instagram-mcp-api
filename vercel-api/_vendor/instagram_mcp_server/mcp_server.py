@@ -4033,8 +4033,8 @@ def instagram_cancel_scheduled_post(queue_id: str, confirm: bool = False) -> str
 # 12. BLOB UPLOAD STAGING (the /upload page)
 #     Browser sends files straight to Vercel Blob (no 4.5 MB serverless body
 #     limit); these tools list / preview / publish / delete them. Rejected
-#     files land in the problem log (list_problems). Unposted uploads are
-#     purged after 7 days by the daily cron (api/cleanup.py).
+#     files land in the problem log (list_problems). Uploads stay until
+#     you delete them (the Library, or delete_uploads).
 # ─────────────────────────────────────────────────────────────────────────────
 
 @mcp.tool()
